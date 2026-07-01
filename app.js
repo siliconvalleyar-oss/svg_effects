@@ -34,13 +34,14 @@
   ];
 
   let currentSvg = null;
-  let currentPreset = null;
-  let settings = { speed: 1, delay: 0, iter: 'infinite', dir: 'normal' };
-  let ovalSettings = { rx: 80, ry: 40, angle: 0 };
   let isPiecesMode = false;
   let selectedElement = null;
   let dragState = null;
   let animationPlaying = true;
+
+  // Per-element animation state
+  let elementAnimations = {};
+  let selectedElementIndex = null;
 
   // Slides state
   let slides = [];
@@ -118,6 +119,10 @@
     if (fileInput.files.length) loadFile(fileInput.files[0]);
   });
 
+  function getDefaultElementConfig() {
+    return { presetId: null, speed: 1, delay: 0, iter: 'infinite', dir: 'normal', ovalRx: 80, ovalRy: 40, ovalAngle: 0, directionAngle: 0 };
+  }
+
   function loadSvgString(svgStr) {
     const parser = new DOMParser();
     const doc = parser.parseFromString(svgStr, 'image/svg+xml');
@@ -141,8 +146,9 @@
     $('#elements-panel').classList.add('visible');
 
     exitPiecesMode();
+    elementAnimations = {};
+    selectedElementIndex = null;
     renderElements();
-    if (currentPreset) applyAnimation();
   }
 
   function loadFile(file) {
@@ -151,6 +157,42 @@
     reader.onload = e => loadSvgString(e.target.result);
     reader.readAsText(file);
   }
+
+  // ===== DIRECTION PRESETS (quick angle buttons) =====
+  const directionPresets = [
+    { label: '→', angle: 0 },
+    { label: '↗', angle: 45 },
+    { label: '↑', angle: 90 },
+    { label: '↖', angle: 135 },
+    { label: '←', angle: 180 },
+    { label: '↙', angle: 225 },
+    { label: '↓', angle: 270 },
+    { label: '↘', angle: 315 },
+  ];
+
+  function setupDirectionPresets() {
+    const container = $('#direction-presets');
+    if (!container) return;
+    container.innerHTML = '';
+    directionPresets.forEach(dp => {
+      const btn = document.createElement('button');
+      btn.className = 'dir-preset-btn';
+      btn.textContent = dp.label;
+      btn.dataset.angle = dp.angle;
+      btn.addEventListener('click', () => {
+        const cfg = getConfigForSelected();
+        if (!cfg) return;
+        cfg.directionAngle = dp.angle;
+        $('#direction-slider').value = dp.angle;
+        $('#direction-value').textContent = dp.angle + '°';
+        updateDirectionArrow(dp.angle);
+        applyOneAnimation(selectedElementIndex);
+        renderElements();
+      });
+      container.appendChild(btn);
+    });
+  }
+  setupDirectionPresets();
 
   // ===== ELEMENTS PANEL =====
 
@@ -167,15 +209,24 @@
       const tag = el.tagName.toLowerCase();
       const name = el.getAttribute('id') || el.getAttribute('class') || `${tag} ${i + 1}`;
 
-      // Create mini SVG thumbnail
+      if (!elementAnimations[i]) elementAnimations[i] = getDefaultElementConfig();
+
+      const cfg = elementAnimations[i];
+      const preset = cfg.presetId ? presets.find(p => p.id === cfg.presetId) : null;
+
       const thumbSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
       thumbSvg.setAttribute('viewBox', '0 0 200 200');
       thumbSvg.appendChild(el.cloneNode(true));
 
       const item = document.createElement('div');
-      item.className = 'element-thumb';
+      item.className = 'element-thumb' + (selectedElementIndex === i ? ' selected' : '');
       item.dataset.index = i;
-      item.innerHTML = '';
+
+      const dot = document.createElement('span');
+      dot.className = 'el-preset-dot';
+      dot.style.background = preset ? preset.color : 'transparent';
+      dot.style.border = preset ? 'none' : '1px dashed var(--border)';
+      item.appendChild(dot);
 
       const thumbWrap = document.createElement('div');
       thumbWrap.appendChild(thumbSvg);
@@ -183,7 +234,7 @@
 
       const info = document.createElement('div');
       info.className = 'el-info';
-      info.innerHTML = `<div class="el-name">${name}</div><div class="el-type">&lt;${tag}&gt;</div>`;
+      info.innerHTML = `<div class="el-name">${name}</div><div class="el-type">${preset ? preset.name : '—'}</div>`;
       item.appendChild(info);
 
       const visBtn = document.createElement('button');
@@ -202,13 +253,18 @@
       item.appendChild(visBtn);
 
       item.addEventListener('click', () => {
-        $$('.element-thumb').forEach(t => t.classList.remove('selected'));
-        item.classList.add('selected');
-        highlightElement(i);
+        selectElement(i);
       });
 
       grid.appendChild(item);
     });
+  }
+
+  function selectElement(index) {
+    selectedElementIndex = index;
+    $$('.element-thumb').forEach(t => t.classList.toggle('selected', parseInt(t.dataset.index) === index));
+    highlightElement(index);
+    loadElementConfig(index);
   }
 
   function highlightElement(index) {
@@ -221,42 +277,99 @@
     }
   }
 
+  function loadElementConfig(index) {
+    const cfg = elementAnimations[index];
+    if (!cfg) return;
+
+    const hasPreset = !!cfg.presetId;
+    if (hasPreset) {
+      $$('.preset-btn').forEach(b => b.classList.toggle('active', b.dataset.id === cfg.presetId));
+      const preset = presets.find(p => p.id === cfg.presetId);
+      if (preset) {
+        $('#speed-slider').value = preset.duration;
+        cfg.speed = preset.duration;
+        updateSpeedDisplay();
+      }
+    } else {
+      $$('.preset-btn').forEach(b => b.classList.remove('active'));
+    }
+
+    $('#speed-slider').value = cfg.speed;
+    updateSpeedDisplay();
+    $('#delay-slider').value = cfg.delay;
+    updateDelayDisplay();
+
+    $$('#iter-group .toggle-btn').forEach(b => b.classList.toggle('active', b.dataset.val === cfg.iter));
+    $$('#dir-group .toggle-btn').forEach(b => b.classList.toggle('active', b.dataset.val === cfg.dir));
+
+    $('#oval-controls').style.display = cfg.presetId === 'oval' ? '' : 'none';
+    if (cfg.presetId === 'oval') {
+      $('#oval-rx').value = cfg.ovalRx;
+      $('#oval-rx-val').textContent = cfg.ovalRx + 'px';
+      $('#oval-ry').value = cfg.ovalRy;
+      $('#oval-ry-val').textContent = cfg.ovalRy + 'px';
+      $('#oval-angle').value = cfg.ovalAngle;
+      $('#oval-angle-val').textContent = cfg.ovalAngle + 'deg';
+    }
+
+    $('#direction-controls').style.display = hasPreset ? '' : 'none';
+    if (hasPreset) {
+      $('#direction-slider').value = cfg.directionAngle;
+      $('#direction-value').textContent = cfg.directionAngle + '°';
+      updateDirectionArrow(cfg.directionAngle);
+    }
+  }
+
+  function getConfigForSelected() {
+    if (selectedElementIndex === null) return null;
+    if (!elementAnimations[selectedElementIndex]) {
+      elementAnimations[selectedElementIndex] = getDefaultElementConfig();
+    }
+    return elementAnimations[selectedElementIndex];
+  }
+
   // ===== PLAYBACK CONTROLS =====
 
-  function playAnimation() {
+  function setAllAnimationsPlayState(state) {
     const svg = $('#preview-area svg');
-    if (!svg || !currentPreset) return;
+    if (!svg) return;
+    svg.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, g, text').forEach(el => {
+      el.style.animationPlayState = state;
+    });
+  }
+
+  function playAnimation() {
+    if (selectedElementIndex === null && !Object.values(elementAnimations).some(c => c.presetId)) return;
     animationPlaying = true;
-    svg.style.animationPlayState = 'running';
+    setAllAnimationsPlayState('running');
     $('#play-btn').classList.add('active');
     $('#pause-btn').classList.remove('active');
   }
 
   function pauseAnimation() {
-    const svg = $('#preview-area svg');
-    if (!svg) return;
     animationPlaying = false;
-    svg.style.animationPlayState = 'paused';
+    setAllAnimationsPlayState('paused');
     $('#pause-btn').classList.add('active');
     $('#play-btn').classList.remove('active');
   }
 
   function stopAnimation() {
-    const svg = $('#preview-area svg');
-    if (!svg || !currentPreset) return;
     animationPlaying = false;
-    svg.style.animationPlayState = 'paused';
-    svg.style.animation = 'none';
-    svg.offsetHeight;
-    svg.style.animation = '';
-    svg.classList.remove(...presets.map(p => 'anim-' + p.id));
+    const svg = $('#preview-area svg');
+    if (!svg) return;
+    svg.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, g, text').forEach(el => {
+      el.style.animation = 'none';
+    });
+    void svg.offsetHeight;
     $('#play-btn').classList.remove('active');
     $('#pause-btn').classList.remove('active');
+
     setTimeout(() => {
-      svg.classList.add('anim-' + currentPreset);
-      svg.style.animationPlayState = 'running';
-      animationPlaying = true;
-      $('#play-btn').classList.add('active');
+      applyAllAnimations();
+      if (animationPlaying) {
+        setAllAnimationsPlayState('running');
+        $('#play-btn').classList.add('active');
+      }
     }, 50);
   }
 
@@ -266,100 +379,234 @@
 
   // ===== ANIMATION ENGINE =====
 
-  function prepareSvgForAnimation(svg) {
-    svg.removeAttribute('class');
-    svg.style.transformOrigin = 'center center';
-    svg.style.transformBox = 'fill-box';
-    if (currentPreset === 'draw') {
-      svg.querySelectorAll('path, line, polyline, polygon, circle, ellipse, rect').forEach(el => {
-        const length = el.getTotalLength ? el.getTotalLength() : 1000;
-        el.style.strokeDasharray = length;
-        el.style.setProperty('--path-length', length);
-      });
+  function getDirectionKeyframesName(presetId, angle) {
+    return presetId + '_dir_' + Math.round(angle);
+  }
+
+  function ensureDirectionKeyframes(presetId, angle) {
+    const name = getDirectionKeyframesName(presetId, angle);
+    const existing = $('#preview-area svg style#dir-keyframes');
+    if (existing && existing.textContent.includes(name)) return name;
+
+    const rad = angle * Math.PI / 180;
+    const cos = Math.cos(rad);
+    const sin = Math.sin(rad);
+
+    let kf = '';
+    switch (presetId) {
+      case 'slide':
+        kf = `@keyframes ${name} { 0%,100% { transform: translate(${-80*cos}px,${-80*sin}px); } 50% { transform: translate(${80*cos}px,${80*sin}px); } }`;
+        break;
+      case 'bounce':
+        kf = `@keyframes ${name} { 0%,100% { transform: translate(0,0); } 50% { transform: translate(${20*cos}px,${20*sin}px); } }`;
+        break;
+      case 'shake':
+        kf = `@keyframes ${name} { 0%,100% { transform: translate(0,0); } 10%,30%,50%,70%,90% { transform: translate(${-8*cos}px,${-8*sin}px); } 20%,40%,60%,80% { transform: translate(${8*cos}px,${8*sin}px); } }`;
+        break;
+      case 'float':
+        kf = `@keyframes ${name} { 0%,100% { transform: translate(0,0); } 50% { transform: translate(${15*cos}px,${15*sin}px); } }`;
+        break;
+      case 'gravity':
+        kf = `@keyframes ${name} { 0% { transform: translate(${-100*cos}px,${-100*sin}px); } 30% { transform: translate(${80*cos}px,${80*sin}px); } 50% { transform: translate(${-40*cos}px,${-40*sin}px); } 70% { transform: translate(${30*cos}px,${30*sin}px); } 85% { transform: translate(${-10*cos}px,${-10*sin}px); } 100% { transform: translate(0,0); } }`;
+        break;
     }
+
+    if (kf) {
+      let styleEl = $('#preview-area svg style#dir-keyframes');
+      if (!styleEl) {
+        styleEl = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+        styleEl.id = 'dir-keyframes';
+        $('#preview-area svg').insertBefore(styleEl, $('#preview-area svg').firstChild);
+      }
+      styleEl.textContent += '\n' + kf;
+    }
+    return name;
+  }
+
+  function applyAllAnimations() {
+    const svg = $('#preview-area svg');
+    if (!svg) return;
+    const elements = svg.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, g, text');
+    elements.forEach((el, i) => {
+      applyOneAnimation(i);
+    });
+  }
+
+  function applyOneAnimation(index) {
+    const svg = $('#preview-area svg');
+    if (!svg) return;
+    const elements = svg.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, g, text');
+    const el = elements[index];
+    if (!el) return;
+    const cfg = elementAnimations[index];
+    if (!cfg || !cfg.presetId) {
+      el.style.removeProperty('animation');
+      el.style.removeProperty('transform-origin');
+      el.style.removeProperty('transform-box');
+      return;
+    }
+
+    el.style.transformOrigin = 'center center';
+    el.style.transformBox = 'fill-box';
+
+    const preset = presets.find(p => p.id === cfg.presetId);
+    const isTranslateBased = ['slide', 'bounce', 'shake', 'float', 'gravity'].includes(cfg.presetId);
+    const hasAngle = cfg.directionAngle && cfg.directionAngle !== 0;
+
+    let animName;
+    if (isTranslateBased && hasAngle) {
+      animName = ensureDirectionKeyframes(cfg.presetId, cfg.directionAngle);
+    } else {
+      animName = 'svg' + cfg.presetId.charAt(0).toUpperCase() + cfg.presetId.slice(1);
+    }
+
+    const easing = preset ? preset.easing : 'ease-in-out';
+    el.style.animation = `${animName} ${cfg.speed}s ${easing} ${cfg.iter} ${cfg.dir}`;
+    el.style.animationDelay = cfg.delay + 's';
+    el.style.animationPlayState = animationPlaying ? 'running' : 'paused';
+
+    if (cfg.presetId === 'oval') {
+      el.style.setProperty('--oval-rx', cfg.ovalRx + 'px');
+      el.style.setProperty('--oval-ry', cfg.ovalRy + 'px');
+    }
+
+    if (cfg.presetId === 'draw') {
+      const length = el.getTotalLength ? el.getTotalLength() : 1000;
+      el.style.strokeDasharray = length;
+      el.style.setProperty('--path-length', length);
+    }
+  }
+
+  // ===== TRAJECTORY ARROW =====
+
+  function updateDirectionArrow(angle) {
+    let container = $('#direction-arrow-container');
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'direction-arrow-container';
+      container.className = 'direction-arrow';
+      const area = $('#preview-area');
+      if (area) area.appendChild(container);
+    }
+    const rad = angle * Math.PI / 180;
+    const len = 30;
+    const x2 = 50 + len * Math.cos(rad);
+    const y2 = 50 - len * Math.sin(rad);
+    const headSize = 8;
+    const headAngle = 0.5;
+    const hx1 = x2 - headSize * Math.cos(rad - headAngle);
+    const hy1 = y2 + headSize * Math.sin(rad - headAngle);
+    const hx2 = x2 - headSize * Math.cos(rad + headAngle);
+    const hy2 = y2 + headSize * Math.sin(rad + headAngle);
+    container.innerHTML = `<svg viewBox="0 0 100 100" width="100" height="100">
+      <line x1="50" y1="50" x2="${x2}" y2="${y2}" stroke="var(--accent)" stroke-width="3" stroke-linecap="round"/>
+      <polygon points="${x2},${y2} ${hx1},${hy1} ${hx2},${hy2}" fill="var(--accent)"/>
+      <circle cx="50" cy="50" r="4" fill="var(--accent)" opacity="0.4"/>
+    </svg>`;
   }
 
   function selectPreset(id) {
-    currentPreset = id;
-    $$('.preset-btn').forEach(b => b.classList.toggle('active', b.dataset.id === id));
+    if (selectedElementIndex === null) {
+      const first = $('#element-grid .element-thumb');
+      if (first) selectElement(parseInt(first.dataset.index));
+      else return;
+    }
+    const cfg = getConfigForSelected();
+    if (!cfg) return;
+    cfg.presetId = id;
     const preset = presets.find(p => p.id === id);
     $('#speed-slider').value = preset.duration;
-    settings.speed = preset.duration;
+    cfg.speed = preset.duration;
     updateSpeedDisplay();
     $('#oval-controls').style.display = id === 'oval' ? '' : 'none';
-    applyAnimation();
-  }
-
-  function applyAnimation() {
-    const svg = $('#preview-area svg');
-    if (!svg || !currentPreset) return;
-
-    svg.classList.remove(...presets.map(p => 'anim-' + p.id));
-    svg.style.removeProperty('--dur');
-    svg.style.removeProperty('--easing');
-    svg.style.removeProperty('--iter');
-    svg.style.removeProperty('--dir');
-    svg.style.removeProperty('--oval-rx');
-    svg.style.removeProperty('--oval-ry');
-    svg.style.animation = 'none';
-    svg.offsetHeight;
-
-    const preset = presets.find(p => p.id === currentPreset);
-    svg.style.setProperty('--dur', settings.speed + 's');
-    svg.style.setProperty('--easing', preset.easing);
-    svg.style.setProperty('--iter', settings.iter);
-    svg.style.setProperty('--dir', settings.dir);
-
-    if (currentPreset === 'oval') {
-      svg.style.setProperty('--oval-rx', ovalSettings.rx + 'px');
-      svg.style.setProperty('--oval-ry', ovalSettings.ry + 'px');
-    }
-
-    svg.style.animation = '';
-    svg.classList.add('anim-' + currentPreset);
-    svg.style.animationPlayState = animationPlaying ? 'running' : 'paused';
-    prepareSvgForAnimation(svg);
+    $('#direction-controls').style.display = '';
+    applyOneAnimation(selectedElementIndex);
     renderElements();
   }
 
-  function updateSpeedDisplay() { $('#speed-value').textContent = settings.speed.toFixed(1) + 's'; }
-  function updateDelayDisplay() { $('#delay-value').textContent = settings.delay.toFixed(1) + 's'; }
+  function updateSpeedDisplay() {
+    const cfg = getConfigForSelected();
+    if (cfg) $('#speed-value').textContent = cfg.speed.toFixed(1) + 's';
+    else $('#speed-value').textContent = '1.0s';
+  }
+  function updateDelayDisplay() {
+    const cfg = getConfigForSelected();
+    if (cfg) $('#delay-value').textContent = cfg.delay.toFixed(1) + 's';
+    else $('#delay-value').textContent = '0.0s';
+  }
 
   // Controls
   $('#speed-slider').addEventListener('input', e => {
-    settings.speed = parseFloat(e.target.value);
+    const cfg = getConfigForSelected();
+    if (!cfg) return;
+    cfg.speed = parseFloat(e.target.value);
     updateSpeedDisplay();
-    applyAnimation();
+    applyOneAnimation(selectedElementIndex);
   });
 
   $('#delay-slider').addEventListener('input', e => {
-    settings.delay = parseFloat(e.target.value);
+    const cfg = getConfigForSelected();
+    if (!cfg) return;
+    cfg.delay = parseFloat(e.target.value);
     updateDelayDisplay();
-    applyAnimation();
+    applyOneAnimation(selectedElementIndex);
   });
 
   $$('#iter-group .toggle-btn').forEach(btn => {
     btn.addEventListener('click', () => {
+      const cfg = getConfigForSelected();
+      if (!cfg) return;
       $$('#iter-group .toggle-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      settings.iter = btn.dataset.val;
-      applyAnimation();
+      cfg.iter = btn.dataset.val;
+      applyOneAnimation(selectedElementIndex);
     });
   });
 
   $$('#dir-group .toggle-btn').forEach(btn => {
     btn.addEventListener('click', () => {
+      const cfg = getConfigForSelected();
+      if (!cfg) return;
       $$('#dir-group .toggle-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      settings.dir = btn.dataset.val;
-      applyAnimation();
+      cfg.dir = btn.dataset.val;
+      applyOneAnimation(selectedElementIndex);
     });
   });
 
+  // Direction angle slider
+  $('#direction-slider').addEventListener('input', e => {
+    const cfg = getConfigForSelected();
+    if (!cfg) return;
+    cfg.directionAngle = parseFloat(e.target.value);
+    $('#direction-value').textContent = cfg.directionAngle + '°';
+    updateDirectionArrow(cfg.directionAngle);
+    applyOneAnimation(selectedElementIndex);
+    renderElements();
+  });
+
   // Oval controls
-  $('#oval-rx').addEventListener('input', e => { ovalSettings.rx = parseInt(e.target.value); $('#oval-rx-val').textContent = ovalSettings.rx + 'px'; applyAnimation(); });
-  $('#oval-ry').addEventListener('input', e => { ovalSettings.ry = parseInt(e.target.value); $('#oval-ry-val').textContent = ovalSettings.ry + 'px'; applyAnimation(); });
-  $('#oval-angle').addEventListener('input', e => { ovalSettings.angle = parseInt(e.target.value); $('#oval-angle-val').textContent = ovalSettings.angle + 'deg'; applyAnimation(); });
+  $('#oval-rx').addEventListener('input', e => {
+    const cfg = getConfigForSelected();
+    if (!cfg) return;
+    cfg.ovalRx = parseInt(e.target.value);
+    $('#oval-rx-val').textContent = cfg.ovalRx + 'px';
+    applyOneAnimation(selectedElementIndex);
+  });
+  $('#oval-ry').addEventListener('input', e => {
+    const cfg = getConfigForSelected();
+    if (!cfg) return;
+    cfg.ovalRy = parseInt(e.target.value);
+    $('#oval-ry-val').textContent = cfg.ovalRy + 'px';
+    applyOneAnimation(selectedElementIndex);
+  });
+  $('#oval-angle').addEventListener('input', e => {
+    const cfg = getConfigForSelected();
+    if (!cfg) return;
+    cfg.ovalAngle = parseInt(e.target.value);
+    $('#oval-angle-val').textContent = cfg.ovalAngle + 'deg';
+    applyOneAnimation(selectedElementIndex);
+  });
 
   // Pieces mode
   $('#mode-toggle').addEventListener('click', () => {
@@ -375,7 +622,7 @@
     const area = $('#preview-area');
     area.classList.add('mode-select');
     const svg = area.querySelector('svg');
-    if (svg) svg.style.animationPlayState = 'paused';
+    if (svg) setAllAnimationsPlayState('paused');
     if (!svg) return;
     svg.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, text, g').forEach(el => {
       el.addEventListener('pointerdown', onElementPointerDown);
@@ -390,7 +637,7 @@
     const area = $('#preview-area');
     area.classList.remove('mode-select');
     const svg = area.querySelector('svg');
-    if (svg) svg.style.animationPlayState = animationPlaying ? 'running' : '';
+    if (svg) setAllAnimationsPlayState(animationPlaying ? 'running' : 'paused');
     if (!svg) return;
     svg.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, text, g').forEach(el => {
       el.removeEventListener('pointerdown', onElementPointerDown);
@@ -436,37 +683,85 @@
     }
   });
 
-  // Export
+  // ===== EXPORT =====
+
   $('#export-btn').addEventListener('click', () => {
-    if (!currentSvg || !currentPreset) return;
+    if (!currentSvg) return;
     const svg = $('#preview-area svg');
     const clone = svg.cloneNode(true);
     clone.removeAttribute('class');
-    clone.style.animationPlayState = '';
+    clone.querySelectorAll('style#dir-keyframes').forEach(s => s.remove());
 
-    const preset = presets.find(p => p.id === currentPreset);
-    const keyframeMap = {
-      rotate: `@keyframes svgRotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`,
-      wheel:  `@keyframes svgWheel { 0% { transform: rotate(0deg); } 25% { transform: rotate(90deg); } 50% { transform: rotate(180deg); } 75% { transform: rotate(270deg); } 100% { transform: rotate(360deg); } }`,
-      pulse:  `@keyframes svgPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }`,
-      bounce: `@keyframes svgBounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }`,
-      gravity: `@keyframes svgGravity { 0% { transform: translateY(-100px); } 30% { transform: translateY(80px); } 50% { transform: translateY(-40px); } 70% { transform: translateY(30px); } 85% { transform: translateY(-10px); } 100% { transform: translateY(0); } }`,
-      slide:  `@keyframes svgSlide { 0%, 100% { transform: translateX(-80px); } 50% { transform: translateX(80px); } }`,
-      oval:   `@keyframes svgOval { 0% { transform: translate(0,0); } 25% { transform: translate(var(--oval-rx,80px),0); } 50% { transform: translate(0,var(--oval-ry,40px)); } 75% { transform: translate(calc(-1*var(--oval-rx,80px)),0); } 100% { transform: translate(0,0); } }`,
-      fade:   `@keyframes svgFade { 0%, 100% { opacity: 1; } 50% { opacity: 0.15; } }`,
-      draw:   `@keyframes svgDraw { from { stroke-dashoffset: var(--path-length, 1000); } to { stroke-dashoffset: 0; } }`,
-      shake:  `@keyframes svgShake { 0%, 100% { transform: translateX(0); } 10%,30%,50%,70%,90% { transform: translateX(-8px); } 20%,40%,60%,80% { transform: translateX(8px); } }`,
-      float:  `@keyframes svgFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-15px); } }`,
-      spin:   `@keyframes svgSpin { 0% { transform: rotate(0deg) scale(1); } 50% { transform: rotate(180deg) scale(0.85); } 100% { transform: rotate(360deg) scale(1); } }`,
-      glow:   `@keyframes svgGlow { 0%, 100% { filter: drop-shadow(0 0 4px rgba(108,92,231,0.3)); } 50% { filter: drop-shadow(0 0 24px rgba(108,92,231,0.9)); } }`,
-    };
+    const usedPresets = new Set();
+    const elements = clone.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, g, text');
+    const origElements = svg.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, g, text');
 
-    const ovalVars = currentPreset === 'oval' ? `--oval-rx: ${ovalSettings.rx}px; --oval-ry: ${ovalSettings.ry}px;` : '';
-    const animCSS = `svg { transform-origin: center center; transform-box: fill-box; ${ovalVars} animation: svg${currentPreset.charAt(0).toUpperCase() + currentPreset.slice(1)} ${settings.speed}s ${preset.easing} ${settings.iter} ${settings.dir}; } ${keyframeMap[currentPreset]}`;
-    let drawStyles = currentPreset === 'draw' ? `path, line, polyline, polygon, circle, ellipse, rect { stroke-dasharray: 1000; --path-length: 1000; }` : '';
+    let embeddedStyle = '';
+    let elementStyles = '';
+
+    elements.forEach((el, i) => {
+      const cfg = elementAnimations[i];
+      if (!cfg || !cfg.presetId) return;
+      usedPresets.add(cfg.presetId);
+      const preset = presets.find(p => p.id === cfg.presetId);
+      const origEl = origElements[i];
+      const tag = origEl ? origEl.tagName.toLowerCase() : el.tagName.toLowerCase();
+
+      const isTranslateBased = ['slide', 'bounce', 'shake', 'float', 'gravity'].includes(cfg.presetId);
+      const hasAngle = cfg.directionAngle && cfg.directionAngle !== 0;
+
+      let animName;
+      if (isTranslateBased && hasAngle) {
+        const rad = cfg.directionAngle * Math.PI / 180;
+        const cos = Math.cos(rad);
+        const sin = Math.sin(rad);
+        const dirName = cfg.presetId + '_export_' + i;
+        animName = dirName;
+        let kf = '';
+        switch (cfg.presetId) {
+          case 'slide':
+            kf = `@keyframes ${dirName} { 0%,100% { transform: translate(${-80*cos}px,${-80*sin}px); } 50% { transform: translate(${80*cos}px,${80*sin}px); } }`;
+            break;
+          case 'bounce':
+            kf = `@keyframes ${dirName} { 0%,100% { transform: translate(0,0); } 50% { transform: translate(${20*cos}px,${20*sin}px); } }`;
+            break;
+          case 'shake':
+            kf = `@keyframes ${dirName} { 0%,100% { transform: translate(0,0); } 10%,30%,50%,70%,90% { transform: translate(${-8*cos}px,${-8*sin}px); } 20%,40%,60%,80% { transform: translate(${8*cos}px,${8*sin}px); } }`;
+            break;
+          case 'float':
+            kf = `@keyframes ${dirName} { 0%,100% { transform: translate(0,0); } 50% { transform: translate(${15*cos}px,${15*sin}px); } }`;
+            break;
+          case 'gravity':
+            kf = `@keyframes ${dirName} { 0% { transform: translate(${-100*cos}px,${-100*sin}px); } 30% { transform: translate(${80*cos}px,${80*sin}px); } 50% { transform: translate(${-40*cos}px,${-40*sin}px); } 70% { transform: translate(${30*cos}px,${30*sin}px); } 85% { transform: translate(${-10*cos}px,${-10*sin}px); } 100% { transform: translate(0,0); } }`;
+            break;
+        }
+        embeddedStyle += kf + '\n';
+      } else {
+        switch (cfg.presetId) {
+          case 'rotate': animName = 'svgRotate'; embeddedStyle += `@keyframes svgRotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }\n`; break;
+          case 'wheel': animName = 'svgWheel'; embeddedStyle += `@keyframes svgWheel { 0% { transform: rotate(0deg); } 25% { transform: rotate(90deg); } 50% { transform: rotate(180deg); } 75% { transform: rotate(270deg); } 100% { transform: rotate(360deg); } }\n`; break;
+          case 'pulse': animName = 'svgPulse'; embeddedStyle += `@keyframes svgPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.15); } }\n`; break;
+          case 'bounce': animName = 'svgBounce'; embeddedStyle += `@keyframes svgBounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }\n`; break;
+          case 'gravity': animName = 'svgGravity'; embeddedStyle += `@keyframes svgGravity { 0% { transform: translateY(-100px); } 30% { transform: translateY(80px); } 50% { transform: translateY(-40px); } 70% { transform: translateY(30px); } 85% { transform: translateY(-10px); } 100% { transform: translateY(0); } }\n`; break;
+          case 'slide': animName = 'svgSlide'; embeddedStyle += `@keyframes svgSlide { 0%,100% { transform: translateX(-80px); } 50% { transform: translateX(80px); } }\n`; break;
+          case 'oval': animName = 'svgOval'; embeddedStyle += `@keyframes svgOval { 0% { transform: translate(0,0); } 25% { transform: translate(var(--oval-rx,80px),0); } 50% { transform: translate(0,var(--oval-ry,40px)); } 75% { transform: translate(calc(-1*var(--oval-rx,80px)),0); } 100% { transform: translate(0,0); } }\n`; break;
+          case 'fade': animName = 'svgFade'; embeddedStyle += `@keyframes svgFade { 0%,100% { opacity: 1; } 50% { opacity: 0.15; } }\n`; break;
+          case 'draw': animName = 'svgDraw'; embeddedStyle += `@keyframes svgDraw { from { stroke-dashoffset: var(--path-length,1000); } to { stroke-dashoffset: 0; } }\n`; break;
+          case 'shake': animName = 'svgShake'; embeddedStyle += `@keyframes svgShake { 0%,100% { transform: translateX(0); } 10%,30%,50%,70%,90% { transform: translateX(-8px); } 20%,40%,60%,80% { transform: translateX(8px); } }\n`; break;
+          case 'float': animName = 'svgFloat'; embeddedStyle += `@keyframes svgFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-15px); } }\n`; break;
+          case 'spin': animName = 'svgSpin'; embeddedStyle += `@keyframes svgSpin { 0% { transform: rotate(0deg) scale(1); } 50% { transform: rotate(180deg) scale(0.85); } 100% { transform: rotate(360deg) scale(1); } }\n`; break;
+          case 'glow': animName = 'svgGlow'; embeddedStyle += `@keyframes svgGlow { 0%,100% { filter: drop-shadow(0 0 4px rgba(108,92,231,0.3)); } 50% { filter: drop-shadow(0 0 24px rgba(108,92,231,0.9)); } }\n`; break;
+        }
+      }
+
+      const easing = preset ? preset.easing : 'ease-in-out';
+      const ovalVars = cfg.presetId === 'oval' ? `--oval-rx: ${cfg.ovalRx}px; --oval-ry: ${cfg.ovalRy}px;` : '';
+      const drawExtra = cfg.presetId === 'draw' ? ' stroke-dasharray: 1000; --path-length: 1000;' : '';
+      elementStyles += `${tag}:nth-child(${i + 1}) { transform-origin: center center; transform-box: fill-box; ${ovalVars} animation: ${animName} ${cfg.speed}s ${easing} ${cfg.iter} ${cfg.dir}; animation-delay: ${cfg.delay}s;${drawExtra} }\n`;
+    });
 
     const styleEl = document.createElementNS('http://www.w3.org/2000/svg', 'style');
-    styleEl.textContent = animCSS + drawStyles;
+    styleEl.textContent = embeddedStyle + '\n' + elementStyles;
     clone.insertBefore(styleEl, clone.firstChild);
 
     let svgStr = '<?xml version="1.0" encoding="UTF-8"?>\n' + new XMLSerializer().serializeToString(clone);
@@ -593,5 +888,14 @@
 
   $('#slide-duration').addEventListener('input', e => { slideDuration = parseFloat(e.target.value); $('#slide-duration-val').textContent = slideDuration.toFixed(1) + 's'; if (isSlidePlaying) { stopSlideShow(); startSlideShow(); } });
   $('#transition-speed').addEventListener('input', e => { transitionSpeed = parseFloat(e.target.value); $('#transition-speed-val').textContent = transitionSpeed.toFixed(1) + 's'; });
+
+  // Keyboard shortcut for play/pause
+  document.addEventListener('keydown', e => {
+    if (e.key === ' ' && !isPiecesMode && !e.target.matches('input, button, textarea')) {
+      e.preventDefault();
+      if (animationPlaying) pauseAnimation();
+      else playAnimation();
+    }
+  });
 
 })();

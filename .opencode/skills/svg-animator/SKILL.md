@@ -107,22 +107,53 @@ Círculo, Cuadrado, Triángulo, Estrella, Corazón, Hexágono, Rombo, Cruz, Onda
 - No exporta posiciones del modo piezas ni config de transform-origin
 - Compatible con navegadores, editores SVG, `<img>`, `<object>`
 
+## Características implementadas recientemente
+
+### Animaciones independientes por pieza
+- Cada elemento del SVG tiene su propio preset de animación independiente.
+- Al hacer clic en una miniatura del panel derecho, se cargan sus controles en la barra izquierda.
+- El `elementAnimations` map (por índice) almacena la configuración por pieza.
+- `selectedElementIndex` indica qué elemento está siendo editado.
+- `selectPreset(id)` asigna la animación solo al elemento seleccionado.
+- `applyOneAnimation(index)` aplica la animación a un solo elemento vía `style.animation`.
+- `applyAllAnimations()` itera todos los elementos con animación asignada.
+
+### Sentido / Ángulo de movimiento
+- Control deslizante de ángulo (0–360°) para animaciones basadas en translación.
+- Botones de dirección rápida: → ↗ ↑ ↖ ← ↙ ↓ ↘.
+- Genera keyframes dinámicos con la dirección aplicada (inyectados en `<style id="dir-keyframes">`).
+- Flecha de trayectoria superpuesta en el preview que muestra la dirección actual.
+- Animaciones afectadas: slide, bounce, shake, float, gravity.
+
+### Preview expandido
+- `overflow: visible` en `.preview` y `#preview-area` para que piezas movidas no se corten.
+
+### Playback multi-pieza
+- `setAllAnimationsPlayState(state)` controla todas las animaciones simultáneamente.
+- Play/Pause/Stop ahora operan sobre todos los elementos animados.
+- Atajo de teclado `Space` para Play/Pause (solo fuera de inputs).
+
+### Export multi-pieza
+- Exporta cada elemento con su animación y keyframes individuales.
+- Genera reglas `tag:nth-child(n)` para cada pieza.
+
 ## Cómo agregar una animación nueva
 
-1. Agregar preset en `app.js` línea 5:
+1. Agregar preset en `app.js`:
    ```js
    { name: 'Nombre', id: 'nombre-id', color: '#hex', duration: 1, easing: 'ease-in-out' }
    ```
-2. Agregar clase CSS en `styles.css` junto a las otras `.anim-*`:
+2. Agregar clase CSS en `styles.css`:
    ```css
    .anim-nombre-id { animation: svgNombreId var(--dur) var(--easing) var(--iter) var(--dir); }
    ```
 3. Agregar `@keyframes svgNombreId { ... }` en `styles.css`
-4. Agregar keyframe al `keyframeMap` en la función export de `app.js` línea 448
+4. Agregar keyframe en export (sección de keyframes individuales en `app.js`) y en `ensureDirectionKeyframes` si aplica.
+5. Si la animación usa translación y debe soportar dirección, agregarla en `isTranslateBased` en `applyOneAnimation`.
 
 ## Cómo agregar una forma nueva
 
-Agregar en el array `shapes` en `app.js` línea 21:
+Agregar en el array `shapes` en `app.js`:
 ```js
 { name: 'Nombre', svg: '<svg viewBox="0 0 200 200">...</svg>' }
 ```
