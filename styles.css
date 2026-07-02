@@ -398,6 +398,93 @@ input[type="range"]::-webkit-slider-thumb {
 .element-thumb .el-visibility:hover { color: var(--accent); }
 .element-thumb .el-visibility.hidden { color: var(--danger); opacity: 0.5; }
 
+.element-thumb.multi-selected { border-color: #2ecc71; background: rgba(46, 204, 113, 0.15); }
+.element-thumb.grouped { border-left: 3px solid; }
+
+.el-checkbox {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.group-badge {
+  display: inline-block;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 8px;
+  color: #fff;
+  margin-left: 4px;
+}
+
+.group-controls {
+  display: flex;
+  gap: 4px;
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.group-btn {
+  flex: 1;
+  padding: 6px 8px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.group-btn:hover { border-color: var(--accent); background: rgba(108, 92, 231, 0.1); }
+.group-btn.active { border-color: var(--accent); background: rgba(108, 92, 231, 0.2); color: var(--accent); }
+
+.groups-section {
+  padding: 8px;
+  border-top: 1px solid var(--border);
+  margin-top: 8px;
+}
+
+.groups-title {
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.group-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-left: 3px solid;
+  border-radius: 4px;
+  margin-bottom: 4px;
+  cursor: pointer;
+  font-size: 10px;
+  transition: all 0.15s;
+}
+
+.group-item:hover { border-color: var(--accent); }
+
+.group-item-name { flex: 1; color: var(--text); }
+
+.group-delete-btn {
+  width: 16px;
+  height: 16px;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 10px;
+  border-radius: 3px;
+}
+
+.group-delete-btn:hover { color: var(--danger); background: rgba(231, 76, 60, 0.1); }
+
 /* Animations */
 .anim-none { }
 .anim-rotate { animation: svgRotate var(--dur) var(--easing) var(--iter) var(--dir); }

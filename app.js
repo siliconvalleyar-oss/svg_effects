@@ -43,6 +43,12 @@
   let elementAnimations = {};
   let selectedElementIndex = null;
 
+  // Group system
+  let elementGroups = {}; // { groupId: { name, elements: [indices], presetId, config } }
+  let selectedGroupElements = []; // multi-select indices
+  let isMultiSelectMode = false;
+  let nextGroupId = 1;
+
   // Slides state
   let slides = [];
   let currentSlideIndex = -1;
@@ -192,6 +198,14 @@
       if (!elementAnimations[i]) elementAnimations[i] = getDefaultElementConfig();
       elementAnimations[i].presetId = lastPresetId;
       elementAnimations[i].speed = preset.duration;
+
+      // Update group config if element belongs to a group
+      const groupId = Object.keys(elementGroups).find(gid => elementGroups[gid].elements.includes(i));
+      if (groupId && elementGroups[groupId].elements[0] === i) {
+        elementGroups[groupId].config = { ...elementAnimations[i] };
+        elementGroups[groupId].color = preset.color;
+      }
+
       applyOneAnimation(i);
     });
     selectedElementIndex = 0;
@@ -244,6 +258,9 @@
     exitPiecesMode();
     elementAnimations = {};
     selectedElementIndex = null;
+    elementGroups = {};
+    selectedGroupElements = [];
+    nextGroupId = 1;
     renderElements();
   }
 
@@ -301,6 +318,25 @@
     const elements = svg.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, g, text');
     if (!elements.length) { grid.innerHTML = '<div class="file-empty">Sin elementos</div>'; return; }
 
+    // Group controls header
+    const groupHeader = document.createElement('div');
+    groupHeader.className = 'group-controls';
+    groupHeader.innerHTML = `
+      <button class="group-btn" id="toggle-multiselect" title="Seleccionar múltiples piezas">☰ Seleccionar</button>
+      <button class="group-btn" id="create-group-btn" title="Crear grupo con selección" style="display:none">Grupo +</button>
+      <button class="group-btn" id="clear-selection-btn" title="Limpiar selección" style="display:none">✕</button>
+    `;
+    grid.appendChild(groupHeader);
+
+    setTimeout(() => {
+      const toggleBtn = $('#toggle-multiselect');
+      const createBtn = $('#create-group-btn');
+      const clearBtn = $('#clear-selection-btn');
+      if (toggleBtn) toggleBtn.addEventListener('click', toggleMultiSelectMode);
+      if (createBtn) createBtn.addEventListener('click', createGroupFromSelection);
+      if (clearBtn) clearBtn.addEventListener('click', clearGroupSelection);
+    }, 0);
+
     elements.forEach((el, i) => {
       const tag = el.tagName.toLowerCase();
       const name = el.getAttribute('id') || el.getAttribute('class') || `${tag} ${i + 1}`;
@@ -310,18 +346,37 @@
       const cfg = elementAnimations[i];
       const preset = cfg.presetId ? presets.find(p => p.id === cfg.presetId) : null;
 
+      // Find which group this element belongs to
+      const groupId = Object.keys(elementGroups).find(gid => elementGroups[gid].elements.includes(i));
+      const group = groupId ? elementGroups[groupId] : null;
+
       const thumbSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
       thumbSvg.setAttribute('viewBox', '0 0 200 200');
       thumbSvg.appendChild(el.cloneNode(true));
 
       const item = document.createElement('div');
       item.className = 'element-thumb' + (selectedElementIndex === i ? ' selected' : '');
+      if (selectedGroupElements.includes(i)) item.classList.add('multi-selected');
+      if (group) item.classList.add('grouped');
       item.dataset.index = i;
+
+      // Checkbox for multi-select
+      if (isMultiSelectMode) {
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'el-checkbox';
+        checkbox.checked = selectedGroupElements.includes(i);
+        checkbox.addEventListener('click', e => {
+          e.stopPropagation();
+          toggleElementSelection(i);
+        });
+        item.appendChild(checkbox);
+      }
 
       const dot = document.createElement('span');
       dot.className = 'el-preset-dot';
-      dot.style.background = preset ? preset.color : 'transparent';
-      dot.style.border = preset ? 'none' : '1px dashed var(--border)';
+      dot.style.background = preset ? preset.color : (group ? '#fff' : 'transparent');
+      dot.style.border = preset ? 'none' : (group ? '2px solid ' + (group.color || '#666') : '1px dashed var(--border)');
       item.appendChild(dot);
 
       const thumbWrap = document.createElement('div');
@@ -330,7 +385,8 @@
 
       const info = document.createElement('div');
       info.className = 'el-info';
-      info.innerHTML = `<div class="el-name">${name}</div><div class="el-type">${preset ? preset.name : '—'}</div>`;
+      const groupLabel = group ? ` <span class="group-badge" style="background:${group.color || '#666'}">${group.name}</span>` : '';
+      info.innerHTML = `<div class="el-name">${name}${groupLabel}</div><div class="el-type">${preset ? preset.name : (group ? group.name : '—')}</div>`;
       item.appendChild(info);
 
       const visBtn = document.createElement('button');
@@ -349,11 +405,148 @@
       item.appendChild(visBtn);
 
       item.addEventListener('click', () => {
-        selectElement(i);
+        if (isMultiSelectMode) {
+          toggleElementSelection(i);
+        } else {
+          selectElement(i);
+        }
       });
 
       grid.appendChild(item);
     });
+
+    // Show existing groups
+    if (Object.keys(elementGroups).length > 0) {
+      const groupsSection = document.createElement('div');
+      groupsSection.className = 'groups-section';
+      groupsSection.innerHTML = '<div class="groups-title">Grupos</div>';
+      Object.entries(elementGroups).forEach(([gid, group]) => {
+        const groupItem = document.createElement('div');
+        groupItem.className = 'group-item';
+        groupItem.style.borderLeftColor = group.color || '#666';
+        groupItem.innerHTML = `
+          <span class="group-item-name">${group.name} (${group.elements.length} piezas)</span>
+          <button class="group-delete-btn" title="Eliminar grupo">✕</button>
+        `;
+        groupItem.querySelector('.group-delete-btn').addEventListener('click', () => deleteGroup(gid));
+        groupItem.addEventListener('click', () => selectGroup(gid));
+        groupsSection.appendChild(groupItem);
+      });
+      grid.appendChild(groupsSection);
+    }
+  }
+
+  // ===== GROUP MANAGEMENT =====
+
+  const groupColors = ['#6c5ce7', '#e74c3c', '#2ecc71', '#f39c12', '#1abc9c', '#9b59b6', '#3498db', '#e67e22'];
+
+  function toggleMultiSelectMode() {
+    isMultiSelectMode = !isMultiSelectMode;
+    selectedGroupElements = [];
+    const toggleBtn = $('#toggle-multiselect');
+    const createBtn = $('#create-group-btn');
+    const clearBtn = $('#clear-selection-btn');
+    if (toggleBtn) toggleBtn.classList.toggle('active', isMultiSelectMode);
+    if (createBtn) createBtn.style.display = isMultiSelectMode ? '' : 'none';
+    if (clearBtn) clearBtn.style.display = isMultiSelectMode ? '' : 'none';
+    renderElements();
+  }
+
+  function toggleElementSelection(index) {
+    const idx = selectedGroupElements.indexOf(index);
+    if (idx === -1) {
+      selectedGroupElements.push(index);
+    } else {
+      selectedGroupElements.splice(idx, 1);
+    }
+    const createBtn = $('#create-group-btn');
+    if (createBtn) createBtn.style.display = selectedGroupElements.length >= 2 ? '' : 'none';
+    renderElements();
+  }
+
+  function clearGroupSelection() {
+    selectedGroupElements = [];
+    const createBtn = $('#create-group-btn');
+    if (createBtn) createBtn.style.display = 'none';
+    renderElements();
+  }
+
+  function createGroupFromSelection() {
+    if (selectedGroupElements.length < 2) return;
+    const name = prompt('Nombre del grupo:', `Grupo ${nextGroupId}`);
+    if (!name) return;
+
+    const color = groupColors[(nextGroupId - 1) % groupColors.length];
+    const groupId = 'g' + nextGroupId++;
+
+    // Get config from first selected element as template
+    const firstIdx = selectedGroupElements[0];
+    const templateConfig = elementAnimations[firstIdx] ? { ...elementAnimations[firstIdx] } : getDefaultElementConfig();
+
+    elementGroups[groupId] = {
+      name: name,
+      color: color,
+      elements: [...selectedGroupElements],
+      config: templateConfig
+    };
+
+    // Apply same animation config to all elements in group
+    selectedGroupElements.forEach(idx => {
+      elementAnimations[idx] = { ...templateConfig };
+    });
+
+    selectedGroupElements = [];
+    isMultiSelectMode = false;
+    renderElements();
+
+    // Apply animations to group
+    applyGroupAnimation(groupId);
+  }
+
+  function deleteGroup(groupId) {
+    const group = elementGroups[groupId];
+    if (!group) return;
+    delete elementGroups[groupId];
+    renderElements();
+  }
+
+  function selectGroup(groupId) {
+    const group = elementGroups[groupId];
+    if (!group) return;
+
+    // Highlight all elements in the group
+    const svg = $('#preview-area svg');
+    if (!svg) return;
+    const elements = svg.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, g, text');
+    svg.querySelectorAll('*').forEach(el => el.classList.remove('element-selected'));
+    group.elements.forEach(idx => {
+      if (elements[idx]) elements[idx].classList.add('element-selected');
+    });
+
+    // Select first element to show config
+    if (group.elements.length > 0) {
+      selectElement(group.elements[0]);
+    }
+  }
+
+  function applyGroupAnimation(groupId) {
+    const group = elementGroups[groupId];
+    if (!group || !group.config || !group.config.presetId) return;
+
+    const svg = $('#preview-area svg');
+    if (!svg) return;
+    const elements = svg.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, g, text');
+
+    group.elements.forEach(idx => {
+      if (elements[idx]) {
+        elementAnimations[idx] = { ...group.config };
+        applyOneAnimation(idx);
+      }
+    });
+  }
+
+  function applyAllGroupAnimations() {
+    Object.keys(elementGroups).forEach(gid => applyGroupAnimation(gid));
   }
 
   function selectElement(index) {
@@ -616,7 +809,20 @@
     updateSpeedDisplay();
     $('#oval-controls').style.display = id === 'oval' ? '' : 'none';
     $('#direction-controls').style.display = '';
-    applyOneAnimation(selectedElementIndex);
+
+    // Check if element belongs to a group
+    const groupId = Object.keys(elementGroups).find(gid => elementGroups[gid].elements.includes(selectedElementIndex));
+    if (groupId) {
+      // Apply to all elements in the group
+      const group = elementGroups[groupId];
+      group.config = { ...cfg };
+      group.elements.forEach(idx => {
+        elementAnimations[idx] = { ...cfg };
+        applyOneAnimation(idx);
+      });
+    } else {
+      applyOneAnimation(selectedElementIndex);
+    }
     renderElements();
   }
 
