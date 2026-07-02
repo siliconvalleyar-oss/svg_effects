@@ -103,7 +103,11 @@ def start_server(port):
             # Endpoint API para listar archivos SVG
             if self.path == '/api/files':
                 files_dir = SCRIPT_DIR / 'files'
-                svg_files = sorted([f.name for f in files_dir.iterdir() if f.suffix.lower() == '.svg']) if files_dir.exists() else []
+                svg_files = []
+                if files_dir.exists():
+                    for f in sorted(files_dir.rglob('*.svg')):
+                        rel = f.relative_to(files_dir).as_posix()
+                        svg_files.append(rel)
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json')
                 self.send_header('Access-Control-Allow-Origin', '*')
