@@ -1,22 +1,23 @@
 # Modo Piezas
 
-El modo piezas permite interactuar con elementos individuales dentro de un SVG.
+El modo piezas permite seleccionar y arrastrar elementos individuales dentro de un SVG.
 
 ## Activar
 
 1. Cargar un SVG (importar, generar, o seleccionar del servidor)
-2. Hacer clic en "Mover piezas por separado"
-3. El modo se activa y las animaciones se pausan
+2. Hacer clic en **"Mover piezas por separado"**
+3. Las animaciones se pausan automáticamente
 
 ## Funcionamiento
 
 ### Seleccionar elemento
-- Hacer clic en cualquier elemento del SVG
-- El elemento seleccionado se resalta con un borde punteado violeta
+- Hacer clic en cualquier elemento del SVG (borde punteado violeta)
+- También se puede seleccionar desde las miniaturas del panel derecho
 
 ### Mover elemento
 - Arrastrar el elemento seleccionado con el mouse
-- El movimiento se escala automaticamente al espacio de coordenadas del SVG
+- El desplazamiento se suma a la posición visual existente (`visualX`/`visualY`)
+- Compatible con rotación y escala: el elemento mantiene su transformación visual
 
 ### Deseleccionar
 - Presionar `ESC`
@@ -24,12 +25,12 @@ El modo piezas permite interactuar con elementos individuales dentro de un SVG.
 
 ## Comportamiento
 
-- Las animaciones CSS se pausan automaticamente al entrar al modo piezas
+- Las animaciones CSS se pausan al entrar al modo piezas
 - Las animaciones se reanudan al salir del modo
-- Los movimientos se aplican via `transform: translate()` en el elemento
-- Los movimientos son relativos a la posicion original del elemento
+- Los movimientos persisten al salir del modo (ya no se pierden)
+- Las posiciones se guardan en el historial undo/redo
+- Las transformaciones visuales (rotación, escala) no se pierden al salir del modo
 
-## Limitaciones
+## Exportación
 
-- Los movimientos no se guardan al exportar (solo afectan el preview)
-- Para exportar con posiciones personalizadas, editar el SVG manualmente
+Las posiciones, rotaciones y escalas visuales **SÍ se exportan** en el SVG animado.

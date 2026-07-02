@@ -1,11 +1,11 @@
 ---
 name: svg-animator
-description: Use when working on the SVG Animator project (svg_animated, svg_effects). A vanilla JS web app for animating SVGs with presets, pieces mode, slideshow, and export. Use for questions about animations, presets, pieces mode, slides, shapes, export, controls, CSS keyframes, or the codebase structure.
+description: Use when working on the SVG Animator project (svg_animated). A vanilla JS web app for animating SVGs with presets, multi-preset per element, undo/redo, rotation handle, metadata panel, z-order, file browser, pieces mode, slideshow, clean export, and fade opacity controls.
 ---
 
 # SVG Animator — Skill Reference
 
-App web 100% client-side para animar SVGs. Sin dependencias, sin build tools. Vanilla HTML/CSS/JS.
+App web 100% cliente para animar SVGs. Sin dependencias, sin build tools. Vanilla HTML/CSS/JS + versión Qt (C++17/CMake).
 
 ## Stack
 
@@ -13,166 +13,127 @@ App web 100% client-side para animar SVGs. Sin dependencias, sin build tools. Va
 |------|-----------|
 | Frontend | Vanilla JS (ES6), HTML5, CSS3 |
 | Layout | Flexbox, CSS Grid, CSS Custom Properties |
-| Animaciones | CSS `@keyframes`, clases de animación |
+| Animaciones | CSS `@keyframes`, multi-preset por elemento |
 | Servidor | Python 3 (`python3 -m http.server`) |
+| Qt | Qt 5.15 (Widgets, Svg, Xml), C++17, CMake 3.16+ |
 | Dependencias | **Ninguna** |
 
 ## Archivos principales
 
 | Archivo | Propósito |
 |---------|-----------|
-| `index.html` | Estructura HTML semántica (sidebar izq, preview central, panel der) |
-| `styles.css` | Tema oscuro, layout, keyframes CSS, transiciones slides |
-| `app.js` | Toda la lógica: presets, shapes, motor de animación, modo piezas, export, slides |
-| `serve.sh` | Script para arrancar servidor HTTP local |
-| `VERSION` | `1.0.0` |
+| `index.html` | Estructura HTML: sidebar, preview, panel, metadata |
+| `styles.css` | Tema oscuro, keyframes, layout, metadata cyan |
+| `app.js` | ~1736 líneas: motor animación, multi-preset, undo/redo, rotación, z-order, file browser, pieces, slides, export |
+| `VERSION` | `1.2.0` |
+| `RULES.md` | Reglas de versionado y push |
 | `docs/` | Documentación completa en español |
-| `files/` | SVGs de ejemplo servidos por el servidor |
+| `files/` | SVGs de ejemplo: `index-octonaut.svg`, `index-portal-blue.svg`, etc. |
+| `qt/` | Versión Qt (C++17, CMake) |
 
-## Estructura del HTML (`index.html`)
+## Características implementadas
 
-- **Sidebar izquierdo** (320px): Import (drag & drop + file input), Archivos del servidor, Generar SVG (12 shapes), Animaciones (presets + play/pause/stop), Controles (speed, delay, repeat, direction), Controles de óvalo, Modo Piezas, Exportar, Slides
-- **Preview central**: Área de previsualización con estado vacío
-- **Panel derecho** (220px): Miniaturas de elementos SVG del documento cargado
+### Animaciones (13 presets)
+`rotate`, `wheel`, `pulse`, `bounce`, `gravity`, `slide`, `oval`, `fade`, `draw`, `shake`, `float`, `spin`, `glow`
 
-## Animaciones disponibles (13 implementadas en código)
+### Multi-preset por elemento
+- `presetIds` array en lugar de `presetId` string
+- Varios presets simultáneos por elemento
+- Propiedades en conflicto: el último en `presetIds` tiene prioridad
+- `applyOneAnimation(index)`: aplica CSS animation combinada (comma-separated)
 
-| ID | Nombre | Easing default | Descripción |
-|----|--------|---------------|-------------|
-| `rotate` | Rotar | linear | Rotación 360° continua |
-| `wheel` | Rueda | linear | Rotación con pasos de 90° |
-| `pulse` | Pulsar | ease-in-out | Escala 1 → 1.15 |
-| `bounce` | Rebotar | ease-in-out | TranslateY -20px |
-| `gravity` | Gravedad | ease-out (cubic-bezier) | Caída con rebote amortiguado |
-| `slide` | Deslizar | ease-in-out | TranslateX ±80px |
-| `oval` | Óvalo | linear | Trayectoria elíptica configurable (rx, ry, angle) |
-| `fade` | Desvanecer | ease-in-out | Opacidad 1 → 0.15 |
-| `draw` | Dibujar | ease-in-out | stroke-dashoffset (requiere stroke) |
-| `shake` | Temblar | ease-in-out | Vibración horizontal ±8px |
-| `float` | Flotar | ease-in-out | TranslateY -15px |
-| `spin` | Girar | ease-in-out | Rotación + escala 0.85 |
-| `glow` | Brillar | ease-in-out | drop-shadow |
+### Panel de propiedades (metadata)
+- Siempre visible al seleccionar elemento
+- Muestra: tag, ID, visibilidad (con botón de ojo), posición X/Y, ancho/alto, ángulo (-180° a 180°), escala (10–300%)
+- Texto cyan/teal (`#5dade2` / `#85c1e9`)
+- Visibilidad sincronizada con miniaturas vía `origElRefs[index]`
 
-**Documentadas pero NO implementadas en código**: `spiral` (espiral), `elastic` (elástico), `wave` (wave).
+### Rotación visual
+- Manejador overlay SVG: línea + punto central + perilla arrastrable
+- `visualRotation` en config (persistido en undo/redo)
+- `applyElementVisual()` con `transform-box: fill-box` y `transform-origin: center center`
+- Durante drag: pausa animación CSS; al soltar: reanuda si hay preset
+- Slider de rotación en metadata se actualiza en tiempo real
 
-## Formas predefinidas (12)
+### Escala
+- `scale` en config (0.1–3.0, slider en metadata 10–300%)
+- Aplicada como parte del `transform` visual
 
-Círculo, Cuadrado, Triángulo, Estrella, Corazón, Hexágono, Rombo, Cruz, Onda, Flecha, Rayo, Luna.
+### Control de opacidad (Desvanecer)
+- Sliders Min/Max (0–100%) visibles al activar preset `fade`
+- `fadeMin`/`fadeMax` en config (0–1 float)
+- Keyframes usan `var(--fade-min, 0.15)` / `var(--fade-max, 1)`
 
-## Controles
+### Órden Z
+- Botones: frente, fondo, subir, bajar
+- `_reorderElement(el, fn)`: reordena DOM + reindexa `elementAnimations`
 
-| Control | Rango | Default |
-|---------|-------|---------|
-| Velocidad | 0.2s – 5s | 1.0s |
-| Retraso | 0s – 3s | 0s |
-| Repetir | infinite / 1 / 3 | infinite |
-| Dirección | normal / reverse / alternate | normal |
+### File browser
+- Fetch de `files/` desde servidor HTTP
+- Fallback a lista hardcoded si falla
+- Folder picker: `<input type="file" webkitdirectory>`
+- Drag desde lista al preview
+- SVG por defecto: `files/index-octonaut.svg` al inicio
 
-### Óvalo (solo visible con animación `oval`)
+### Undo/Redo
+- `actionHistory` (50 instantáneas)
+- `pushHistory()`, `undo()`, `redo()`
+- Ctrl+Z / Ctrl+Shift+Z
+- `afterHistoryRestore()`: reaplica animaciones + transforms visuales
 
-| Control | Rango | Default |
-|---------|-------|---------|
-| Ancho X | 10–150px | 80px |
-| Alto Y | 10–150px | 40px |
-| Ángulo | 0–360° | 0° |
+### Copy/Paste/Duplicate/Delete
+- `copiedConfig` clipboard por elemento
+- Ctrl+C / Ctrl+V / Ctrl+D / Delete
+- `deleteElement()` reindexa `elementAnimations`
+
+### Modo piezas
+- PointerEvents para seleccionar/arrastrar elementos
+- `visualX`/`visualY` en config (persistente al salir del modo)
+- Pausa/reanuda animaciones al entrar/salir
+- Ya no elimina transforms al salir (fix: no pierde rotación/escala)
+
+### Export limpio
+- Clona SVG, elimina `element-selected`, `outline`, `outline-offset`, `filter`
+- Mantiene `display:none` y transforms visuales
+- Keyframes embedidos con custom properties
+- Reglas `tag:nth-child(n)` por elemento
+
+### Estructura clave del código (`app.js`)
+
+| Función | Ubicación | Propósito |
+|---------|-----------|-----------|
+| `getDefaultElementConfig()` | L330 | Config base con `presetIds`, `visualRotation`, `fadeMin`, etc. |
+| `applyElementVisual(el, cfg)` | L334 | Transform visual: translate + rotate + scale |
+| `loadSvgString(svgStr)` | L350 | Carga SVG, resetea `origElRefs`, setup preview |
+| `renderElements()` | L433 | Miniaturas + visibilidad + z-order |
+| `selectElement(index)` | ~L680 | Selección, highlight, rotation handle, metadata |
+| `loadElementConfig(index)` | L689 | Puebla controles desde config |
+| `updateMetadata(el, cfg, index)` | L765 | Actualiza panel propiedades |
+| `applyAllAnimations()` | L900 | Aplica animaciones a todos los elementos |
+| `applyOneAnimation(index)` | L909 | Aplica presetIds como CSS animation al elemento |
+| `showRotationHandle(idx)` | L1219 | Crea overlay SVG de rotación |
+| `onRotationPointerMove(e)` | L1316 | Arrastre: actualiza angle + pausa animación |
+| `enterPiecesMode()` | L1145 | Activa pieces, pausa anims, agrega outlines |
+| `exitPiecesMode()` | L1163 | Desactiva pieces, reanuda anims (NO borra transform) |
+| `exportAnimatedSvg()` | L1397 | Clona, limpia, genera CSS + keyframes |
 
 ### Atajos de teclado
 
 | Tecla | Acción |
 |-------|--------|
-| `ESC` | Deseleccionar elemento en modo piezas |
-| `Space` | Play/Pause animación |
+| Ctrl+Z | Undo |
+| Ctrl+Shift+Z | Redo |
+| Ctrl+C | Copiar config |
+| Ctrl+V | Pegar config |
+| Ctrl+D | Duplicar elemento |
+| Delete/Backspace | Eliminar elemento |
+| ESC | Deseleccionar en pieces mode |
+| Space | Play/Pause |
 
-## Modo Piezas
+### VERSION
 
-1. Cargar SVG → click "Mover piezas por separado"
-2. Click en elemento del SVG para seleccionar (borde punteado violeta)
-3. Arrastrar para mover (usa `transform: translate()`)
-4. ESC para deseleccionar
-- Las animaciones se pausan al activar el modo
-- Los movimientos NO se guardan al exportar
-
-## Slides
-
-- Agregar SVG actual como slide
-- 6 transiciones: fade, slide-h, slide-v, zoom, flip, blur
-- Duración de slide: 1–10s
-- Velocidad de transición: 0.2–2s
-- Drag & drop para reordenar
-- Reproducción automática con Play
-
-## Export
-
-- Genera SVG autocontenido con `<style>` + `@keyframes` embebidos + `animation` CSS
-- No exporta posiciones del modo piezas ni config de transform-origin
-- Compatible con navegadores, editores SVG, `<img>`, `<object>`
-
-## Características implementadas recientemente
-
-### Animaciones independientes por pieza
-- Cada elemento del SVG tiene su propio preset de animación independiente.
-- Al hacer clic en una miniatura del panel derecho, se cargan sus controles en la barra izquierda.
-- El `elementAnimations` map (por índice) almacena la configuración por pieza.
-- `selectedElementIndex` indica qué elemento está siendo editado.
-- `selectPreset(id)` asigna la animación solo al elemento seleccionado.
-- `applyOneAnimation(index)` aplica la animación a un solo elemento vía `style.animation`.
-- `applyAllAnimations()` itera todos los elementos con animación asignada.
-
-### Sentido / Ángulo de movimiento
-- Control deslizante de ángulo (0–360°) para animaciones basadas en translación.
-- Botones de dirección rápida: → ↗ ↑ ↖ ← ↙ ↓ ↘.
-- Genera keyframes dinámicos con la dirección aplicada (inyectados en `<style id="dir-keyframes">`).
-- Flecha de trayectoria superpuesta en el preview que muestra la dirección actual.
-- Animaciones afectadas: slide, bounce, shake, float, gravity.
-
-### Preview expandido
-- `overflow: visible` en `.preview` y `#preview-area` para que piezas movidas no se corten.
-
-### Playback multi-pieza
-- `setAllAnimationsPlayState(state)` controla todas las animaciones simultáneamente.
-- Play/Pause/Stop ahora operan sobre todos los elementos animados.
-- Atajo de teclado `Space` para Play/Pause (solo fuera de inputs).
-
-### Export multi-pieza
-- Exporta cada elemento con su animación y keyframes individuales.
-- Genera reglas `tag:nth-child(n)` para cada pieza.
-
-## Cómo agregar una animación nueva
-
-1. Agregar preset en `app.js`:
-   ```js
-   { name: 'Nombre', id: 'nombre-id', color: '#hex', duration: 1, easing: 'ease-in-out' }
-   ```
-2. Agregar clase CSS en `styles.css`:
-   ```css
-   .anim-nombre-id { animation: svgNombreId var(--dur) var(--easing) var(--iter) var(--dir); }
-   ```
-3. Agregar `@keyframes svgNombreId { ... }` en `styles.css`
-4. Agregar keyframe en export (sección de keyframes individuales en `app.js`) y en `ensureDirectionKeyframes` si aplica.
-5. Si la animación usa translación y debe soportar dirección, agregarla en `isTranslateBased` en `applyOneAnimation`.
-
-## Cómo agregar una forma nueva
-
-Agregar en el array `shapes` en `app.js`:
-```js
-{ name: 'Nombre', svg: '<svg viewBox="0 0 200 200">...</svg>' }
-```
-
-## Servidor de desarrollo
-
+Incrementar VERSION (semver) antes de cada push:
 ```bash
-./serve.sh 8080
-# o puerto personalizado: ./serve.sh 3000
+echo "1.2.0" > VERSION
+git tag $(cat VERSION)
 ```
-
-Los cambios se reflejan recargando la página (sin hot reload).
-
-## Referencia de documentación
-
-- `docs/README.md` — Resumen general, características, arquitectura
-- `docs/INSTALLATION.md` — Instalación y requisitos
-- `docs/ANIMATIONS.md` — Lista completa de animaciones con easings
-- `docs/CONTROLS.md` — Todos los controles disponibles
-- `docs/PIECES.md` — Modo piezas detallado
-- `docs/EXPORT.md` — Formato de exportación
-- `docs/DEVELOPMENT.md` — Guía para desarrolladores

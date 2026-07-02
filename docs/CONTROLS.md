@@ -1,67 +1,85 @@
 # Controles
 
-## Controles basicos
+## Controles básicos
 
-### Velocidad (Duracion)
+### Velocidad (Duración)
 - Rango: 0.2s a 5s
-- Controla la duracion de un ciclo de animacion
-- Valores menores = mas rapido
+- Controla la duración de un ciclo de animación
 
 ### Retraso
 - Rango: 0s a 3s
-- Tiempo de espera antes de iniciar la animacion
+- Tiempo de espera antes de iniciar la animación
 
-### Repeticion
-- **Infinito**: La animacion se repite indefinidamente
-- **Una vez**: La animacion corre una sola vez
-- **3 veces**: La animacion se repite 3 veces
+### Repetición
+- **Infinito**: Se repite indefinidamente
+- **Una vez**: Corre una sola vez
+- **3 veces**: Se repite 3 veces
 
-### Direccion
+### Dirección
 - **Normal**: De principio a fin
 - **Reversa**: De fin a principio
 - **Alterno**: Alterna entre normal y reversa
 
-## Controles de eje de referencia
+## Sentido / Ángulo de movimiento
 
-### Eje X (Horizontal)
-- Rango: 0% a 100%
-- Default: 50% (centro)
-- 0% = borde izquierdo del SVG
-- 100% = borde derecho del SVG
+Control deslizante (0–360°) + botones de dirección rápida (→ ↗ ↑ ↖ ← ↙ ↓ ↘).
+Afecta a: slide, bounce, shake, float, gravity.
+Muestra flecha de trayectoria superpuesta en el preview.
 
-### Eje Y (Vertical)
-- Rango: 0% a 100%
-- Default: 50% (centro)
-- 0% = borde superior del SVG
-- 100% = borde inferior del SVG
+## Controles específicos por animación
 
-## Controles de amplitud
+### Óvalo (solo visible con preset `oval`)
+| Control | Rango | Default |
+|---------|-------|---------|
+| Ancho X | 10–150px | 80px |
+| Alto Y | 10–150px | 40px |
+| Ángulo | 0–360° | 0° |
 
-### Intensidad
-- Rango: 10% a 200%
-- Amplifica o reduce la magnitud del efecto
-- Afecta: distancia de rebote, shake, slide, etc.
+### Desvanecer (solo visible con preset `fade`)
+| Control | Rango | Default |
+|---------|-------|---------|
+| Min (opacidad mínima) | 0–100% | 15% |
+| Max (opacidad máxima) | 0–100% | 100% |
 
-## Controles especificos por animacion
+## Panel de propiedades (siempre visible al seleccionar)
 
-### Ovalo
-- **Ancho (X)**: 10-150px - radio horizontal
-- **Alto (Y)**: 10-150px - radio vertical
-- **Angulo**: 0-360grados - rotacion de la trayectoria
+| Campo | Descripción |
+|-------|-------------|
+| Etiqueta | Tag del elemento (`circle`, `rect`, etc.) |
+| ID | ID del elemento o clase |
+| Visible | Estado de visibilidad con botón de ojo |
+| Posición X | Coordenada X del bbox |
+| Posición Y | Coordenada Y del bbox |
+| Ancho | Ancho del bbox |
+| Alto | Alto del bbox |
+| Ángulo | Rotación visual (slider -180° a 180°) |
+| Escala | Escala visual (slider 10%–300%) |
 
-### Color (Brillar)
-- **Matiz**: Color del brillo (0-360grados)
-- **Saturacion**: Intensidad del color (0-100%)
+## Controles de reproducción
 
-## Controles de reproduccion
+- **Play**: Reanudar todas las animaciones
+- **Pause**: Pausar todas las animaciones
+- **Stop**: Detener y resetear
 
-- **Play**: Iniciar/reanudar animacion
-- **Pause**: Pausar animacion
-- **Stop**: Detener y resetear animacion
+## Órden Z
+
+Botones en el panel de elementos: Traer al frente, Enviar al fondo, Subir, Bajar.
+
+## Historial (Undo/Redo)
+
+- Ctrl+Z: Deshacer (hasta 50 niveles)
+- Ctrl+Shift+Z: Rehacer
+- Botones Undo/Redo en la interfaz
 
 ## Atajos de teclado
 
-| Tecla | Accion |
+| Tecla | Acción |
 |-------|--------|
-| `ESC` | Deseleccionar elemento en modo piezas |
-| `Space` | Play/Pause (cuando hay animacion activa) |
+| `Ctrl+Z` | Undo |
+| `Ctrl+Shift+Z` | Redo |
+| `Ctrl+C` | Copiar config de animación |
+| `Ctrl+V` | Pegar config de animación |
+| `Ctrl+D` | Duplicar elemento |
+| `Delete` / `Backspace` | Eliminar elemento |
+| `ESC` | Deseleccionar en modo piezas |
+| `Space` | Play/Pause (fuera de inputs) |

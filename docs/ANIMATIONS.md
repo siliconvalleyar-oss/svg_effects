@@ -2,64 +2,52 @@
 
 ## Lista de animaciones
 
-| ID | Nombre | Descripcion | Easing por defecto |
-|----|--------|-------------|-------------------|
-| `rotate` | Rotar | Rotacion continua 360 | linear |
-| `wheel` | Rueda | Rotacion continua con pasos de 90 | linear |
-| `spiral` | Espiral | Movimiento espiral con rotacion y escala | ease-in-out |
-| `pulse` | Pulsar | Escala arriba/abajo | ease-in-out |
-| `bounce` | Rebotar | Rebote vertical | ease-in-out |
-| `gravity` | Gravedad | Caida con rebote realista | ease-out |
-| `slide` | Deslizar | Movimiento horizontal | ease-in-out |
-| `oval` | Ovalo | Trayectoria eliptica configurable | linear |
-| `elastic` | Elastico | Efecto de resorte | ease-out |
-| `wave` | Wave | Movimiento ondulatorio vertical | ease-in-out |
-| `fade` | Desvanecer | Oscurecimiento opacidad | ease-in-out |
-| `draw` | Dibujar | Dibujado de trazos (stroke) | ease-in-out |
-| `shake` | Temblar | Vibracion horizontal | ease-in-out |
-| `float` | Flotar | Flotacion suave vertical | ease-in-out |
-| `spin` | Girar | Giro con escala | ease-in-out |
-| `glow` | Brillar | Brillo con drop-shadow | ease-in-out |
+| ID | Nombre | Descripción | Easing default | Controles especiales |
+|----|--------|-------------|----------------|---------------------|
+| `rotate` | Rotar | Rotación continua 360° | linear | — |
+| `wheel` | Rueda | Rotación con pasos de 90° | linear | — |
+| `pulse` | Pulsar | Escala 1 → 1.15 | ease-in-out | — |
+| `bounce` | Rebotar | TranslateY -20px | ease-in-out | Ángulo de dirección |
+| `gravity` | Gravedad | Caída con rebote amortiguado | ease-out | Ángulo de dirección |
+| `slide` | Deslizar | TranslateX ±80px | ease-in-out | Ángulo de dirección |
+| `oval` | Óvalo | Trayectoria elíptica configurable | linear | Ancho X, Alto Y, Ángulo |
+| `fade` | Desvanecer | Opacidad configurable | ease-in-out | **Min/Max** (0–100%) |
+| `draw` | Dibujar | stroke-dashoffset | ease-in-out | — |
+| `shake` | Temblar | Vibración horizontal ±8px | ease-in-out | Ángulo de dirección |
+| `float` | Flotar | TranslateY -15px | ease-in-out | Ángulo de dirección |
+| `spin` | Girar | Rotación + escala 0.85 | ease-in-out | — |
+| `glow` | Brillar | drop-shadow | ease-in-out | — |
 
-## Ejes de referencia (transform-origin)
+## Múltiples presets simultáneos
 
-Cada animacion respeta el eje de transformacion configurado:
-
-- **X**: 0% (izquierda) a 100% (derecha), default: 50%
-- **Y**: 0% (arriba) a 100% (abajo), default: 50%
-
-Ejemplo: Para rotar desde la esquina superior izquierda, usar X=0%, Y=0%.
+Cada elemento puede tener varios presets activos a la vez (`presetIds` array). Se combinan como animaciones CSS separadas por coma. Si dos presets modifican la misma propiedad CSS, el último en la lista tiene prioridad.
 
 ## Efectos con controles especiales
 
-### Ovalo
-- **Ancho (X)**: Radio horizontal de la elipse (10-150px)
-- **Alto (Y)**: Radio vertical de la elipse (10-150px)
-- **Angulo**: Rotacion de la trayectoria eliptica (0-360grados)
+### Óvalo
+- **Ancho (X)**: Radio horizontal de la elipse (10–150px)
+- **Alto (Y)**: Radio vertical de la elipse (10–150px)
+- **Ángulo**: Rotación de la trayectoria elíptica (0–360°)
 
-### Gravedad
-- Simula caida libre con rebote amortiguado
-- Usa easing cubic-bezier para realismo
+### Desvanecer (nuevo)
+- **Min**: Opacidad mínima (0–100%, default 15%)
+- **Max**: Opacidad máxima (0–100%, default 100%)
+- Los valores se persisten por elemento en `fadeMin`/`fadeMax`
 
 ### Dibujar
-- Animacion de stroke-dashoffset
+- Animación de stroke-dashoffset
 - Funciona mejor con SVGs que tengan trazos (stroke)
 
-### Espiral
-- Combina rotacion con escala
-- Crea efecto de espiral entrante/saliente
+## Sentido / Ángulo de movimiento
 
-### Elastico
-- Efecto de resorte con sobreoscilacion
-- Escala de 0.3 a 1.1 con rebotes
+Las animaciones basadas en translación (slide, bounce, shake, float, gravity) soportan un control de ángulo (0–360°) para definir la dirección del movimiento. Se muestra una flecha de trayectoria superpuesta en el preview.
 
 ## Easing functions disponibles
 
-| Valor CSS | Descripcion |
+| Valor CSS | Descripción |
 |-----------|-------------|
 | `linear` | Velocidad constante |
-| `ease` | Lento inicio y fin (default CSS) |
+| `ease` | Lento inicio y fin |
 | `ease-in` | Lento inicio |
 | `ease-out` | Lento fin |
 | `ease-in-out` | Lento inicio y fin |
-| `cubic-bezier(x1,y1,x2,y2)` | Curva personalizada |

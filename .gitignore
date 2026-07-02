@@ -20,3 +20,6 @@ package-lock.json
 *.tmp
 *.temp
 prompt.txt
+
+# Build
+qt/build/

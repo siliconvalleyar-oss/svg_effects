@@ -1,51 +1,50 @@
 # Desarrollo
 
-## Estructura del codigo
+## Estructura del código
 
-### styles.css
-- Variables CSS para theming
-- Layout (sidebar, preview, header)
-- Componentes UI (botones, sliders, toggles)
-- Animaciones CSS (keyframes y clases)
+### `styles.css`
+- Variables CSS para theming oscuro
+- Layout: sidebar (izquierda), preview (centro), panel (derecha)
+- Componentes UI (botones, sliders, toggles, thumbnails)
+- Keyframes CSS para todas las animaciones
+- Estilos de metadata panel (cyan/teal)
+- Estilos para manejador de rotación, flecha de dirección, file browser
 
-### app.js
-- **Presets**: Array de animaciones disponibles
-- **Shapes**: SVGs de formas predefinidas
-- **State**: Estado global (currentSvg, currentPreset, settings)
-- **File browser**: Carga de SVGs del servidor
-- **Animation engine**: Aplicacion y control de animaciones
-- **Pieces mode**: Seleccion y movimiento de elementos
-- **Export**: Generacion de SVG animado
+### `app.js`
+- **Presets**: Array de 13 animaciones disponibles
+- **Shapes**: 12 SVGs de formas predefinidas
+- **File browser**: Carga de SVGs del servidor + folder picker
+- **Undo/Redo**: Historial de 50 instantáneas con push/splice
+- **Element actions**: Copy, paste, delete, duplicate config
+- **Z-order**: Reordenamiento DOM de elementos SVG
+- **Metadata panel**: Actualización de etiqueta, ID, visibilidad, bbox, rotación, escala
+- **Rotation handle**: Overlay SVG (línea + punto + perilla) con drag pointer
+- **Animation engine**: `elementAnimations` map por índice, `applyOneAnimation`, `applyAllAnimations`
+- **Multi-preset**: `presetIds` array, combinación CSS con animaciones separadas por coma
+- **Pieces mode**: Pointer events para seleccionar y arrastrar elementos
+- **Export**: Clon limpio + keyframes embebidos + reglas CSS por elemento
+- **Slides**: 6 transiciones (fade, slide-h, slide-v, zoom, flip, blur)
 
-### index.html
-- Estructura semantica HTML5
-- Referencia a CSS y JS externos
-- Secciones del sidebar
+### `index.html`
+- Sidebar izquierdo (320px): import, archivos, shapes, presets, controles, óvalo, fade, modo piezas, export, slides
+- Preview central con `#preview-area`
+- Panel derecho (220px): miniaturas de elementos + z-order
+- Metadata section (siempre visible al seleccionar)
 
-## Agregar nueva animacion
+### `qt/`
+- Versión Qt 5.15 (Widgets, Svg, Xml), C++17, CMake 3.16+
+- Misma funcionalidad de animación que la versión web
+
+## Agregar nueva animación
 
 1. Agregar preset en `app.js`:
 ```js
-{ name: 'Mi Animacion', id: 'mi-anim', color: '#ff0000', duration: 1, easing: 'ease-in-out' }
+{ name: 'Mi Animación', id: 'mi-anim', color: '#ff0000', duration: 1, easing: 'ease-in-out' }
 ```
-
-2. Agregar clase CSS en `styles.css`:
-```css
-.anim-mi-anim { animation: svgMiAnim var(--dur) var(--easing) var(--iter) var(--dir); }
-```
-
-3. Agregar keyframes en `styles.css`:
-```css
-@keyframes svgMiAnim {
-  0% { transform: ... }
-  100% { transform: ... }
-}
-```
-
-4. Agregar en el export keyframeMap en `app.js`:
-```js
-'mi-anim': `@keyframes svgMiAnim { ... }`
-```
+2. Agregar `@keyframes svgMiAnim { ... }` en `styles.css`
+3. Agregar keyframe en el export (`exportKeyframes` en `app.js`)
+4. Si usa translación, agregar id en `isTranslateBased` en `applyOneAnimation`
+5. Si necesita controles especiales (como fade u oval), agregar HTML en `index.html` + lógica en `loadElementConfig` + event handlers
 
 ## Agregar nueva forma
 
@@ -58,9 +57,10 @@ Agregar en el array `shapes` en `app.js`:
 
 ```bash
 ./serve.sh 8080
+# o puerto personalizado: ./serve.sh 3000
 ```
 
-Los cambios en CSS y JS se refrescan al recargar la pagina (no hay hot reload).
+Los cambios en CSS y JS se reflejan recargando la página (sin hot reload).
 
 ## Dependencias
 

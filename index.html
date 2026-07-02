@@ -27,6 +27,8 @@
         <p>Arrastra un SVG aqui<br>o <span class="browse" id="browse-btn">examinar</span></p>
         <input type="file" id="file-input" accept=".svg,image/svg+xml" hidden>
       </div>
+      <button class="file-item folder-btn" id="folder-btn" title="Seleccionar carpeta con SVGs">&#128193; Abrir carpeta...</button>
+      <input type="file" id="folder-input" webkitdirectory multiple accept=".svg" hidden>
     </div>
 
     <div class="section">
@@ -47,8 +49,12 @@
 
       <div class="playback-bar">
         <button class="playback-btn" id="play-btn" title="Play">&#9654;</button>
-        <button class="playback-btn" id="pause-btn" title="Pause">&#10074;&#10074;</button>
-        <button class="playback-btn" id="stop-btn" title="Stop">&#9632;</button>
+        <button class="playback-btn" id="reset-btn" title="Volver a inicio">&#9646;&#9646;</button>
+        <button class="playback-btn" id="pause-btn" title="Pausar">&#10074;&#10074;</button>
+      </div>
+      <div class="undo-bar">
+        <button class="playback-btn half" id="undo-btn" title="Deshacer (Ctrl+Z)">&#8630; Deshacer</button>
+        <button class="playback-btn half" id="redo-btn" title="Rehacer (Ctrl+Shift+Z)">&#8631; Rehacer</button>
       </div>
     </div>
 
@@ -96,6 +102,16 @@
       </div>
     </div>
 
+    <div class="section" id="rotation-section" style="display:none">
+      <div class="section-title">Rotacion</div>
+      <div class="control-group">
+        <div class="control-row">
+          <label>Angulo</label>
+          <span class="value" id="rotation-display">0°</span>
+        </div>
+      </div>
+    </div>
+
     <div class="section" id="oval-controls" style="display:none">
       <div class="section-title">Ovalo</div>
       <div class="control-group">
@@ -113,6 +129,69 @@
           <label>Angulo</label>
           <input type="range" id="oval-angle" min="0" max="360" step="5" value="0">
           <span class="value" id="oval-angle-val">0deg</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section" id="fade-controls" style="display:none">
+      <div class="section-title">Desvanecer</div>
+      <div class="control-group">
+        <div class="control-row">
+          <label>Min</label>
+          <input type="range" id="fade-min" min="0" max="100" step="5" value="15">
+          <span class="value" id="fade-min-val">15%</span>
+        </div>
+        <div class="control-row">
+          <label>Max</label>
+          <input type="range" id="fade-max" min="0" max="100" step="5" value="100">
+          <span class="value" id="fade-max-val">100%</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section" id="metadata-section" style="display:none">
+      <div class="section-title">
+        <span>Propiedades</span>
+      </div>
+      <div class="control-group meta-panel" id="meta-panel">
+        <div class="meta-row">
+          <span class="meta-label">Etiqueta</span>
+          <span class="meta-val" id="meta-tag">—</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">ID</span>
+          <span class="meta-val" id="meta-id">—</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Visible</span>
+          <span class="meta-val" id="meta-visibility">Visible</span>
+          <button class="meta-vis-btn" id="meta-vis-toggle" title="Mostrar/Ocultar">&#128065;</button>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Posicion X</span>
+          <span class="meta-val" id="meta-x">0</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Posicion Y</span>
+          <span class="meta-val" id="meta-y">0</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Ancho</span>
+          <span class="meta-val" id="meta-w">0</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Alto</span>
+          <span class="meta-val" id="meta-h">0</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Angulo</span>
+          <input type="range" id="meta-rotation-slider" min="-180" max="180" step="1" value="0">
+          <span class="meta-val" id="meta-rotation-val">0°</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Escala</span>
+          <input type="range" id="meta-scale-slider" min="10" max="300" step="5" value="100">
+          <span class="meta-val" id="meta-scale-val">100%</span>
         </div>
       </div>
     </div>
@@ -185,6 +264,18 @@
   <aside class="sidebar-right" id="elements-panel">
     <div class="section">
       <div class="section-title">Elementos SVG</div>
+      <div class="element-actions" id="element-actions" style="display:none">
+        <button class="el-action-btn" id="copy-el-btn" title="Copiar configuracion">&#128203; Copiar</button>
+        <button class="el-action-btn" id="paste-el-btn" title="Pegar configuracion">&#128204; Pegar</button>
+        <button class="el-action-btn danger" id="delete-el-btn" title="Eliminar pieza">&#128465; Eliminar</button>
+        <button class="el-action-btn" id="duplicate-el-btn" title="Duplicar pieza">&#128228; Duplicar</button>
+      </div>
+      <div class="element-actions" id="zorder-actions" style="display:none">
+        <button class="el-action-btn" id="to-front-btn" title="Traer al frente">&#11014; Frente</button>
+        <button class="el-action-btn" id="to-back-btn" title="Enviar al fondo">&#11015; Fondo</button>
+        <button class="el-action-btn" id="fwd-btn" title="Subir una capa">&#8593; Subir</button>
+        <button class="el-action-btn" id="bwd-btn" title="Bajar una capa">&#8595; Bajar</button>
+      </div>
       <div class="element-grid" id="element-grid">
         <div class="file-empty">Carga un SVG para ver sus piezas</div>
       </div>
