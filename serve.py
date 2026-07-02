@@ -91,18 +91,30 @@ def print_menu(port):
 def start_server(port):
     """Inicia el servidor HTTP"""
     os.chdir(SCRIPT_DIR)
-    
+
     hostname = get_hostname()
     local_ip = get_local_ip()
-    
+
     class Handler(http.server.SimpleHTTPRequestHandler):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, directory=str(SCRIPT_DIR), **kwargs)
-        
+
+        def do_GET(self):
+            # Endpoint API para listar archivos SVG
+            if self.path == '/api/files':
+                files_dir = SCRIPT_DIR / 'files'
+                svg_files = sorted([f.name for f in files_dir.iterdir() if f.suffix.lower() == '.svg']) if files_dir.exists() else []
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps(svg_files).encode())
+                return
+            super().do_GET()
+
         def log_message(self, format, *args):
-            # Formato de log más limpio
             print(f"  [{self.log_date_time_string()}] {format % args}")
-    
+
     try:
         with socketserver.TCPServer(("", port), Handler) as httpd:
             print()

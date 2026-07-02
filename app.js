@@ -72,16 +72,12 @@
 
   async function fetchFileList() {
     try {
-      const res = await fetch('files/');
+      const res = await fetch('/api/files');
       if (!res.ok) {
         renderFileList(['sample.svg']);
         return;
       }
-      const html = await res.text();
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(html, 'text/html');
-      const links = doc.querySelectorAll('a[href$=".svg"]');
-      const files = Array.from(links).map(a => a.getAttribute('href')).filter(Boolean);
+      const files = await res.json();
       renderFileList(files.length ? files : ['sample.svg']);
     } catch (e) {
       renderFileList(['sample.svg']);
