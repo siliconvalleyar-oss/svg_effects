@@ -112,13 +112,34 @@
 
   // Build preset grid
   const presetGrid = $('#preset-grid');
+  let lastPresetId = null;
   presets.forEach(p => {
     const btn = document.createElement('button');
     btn.className = 'preset-btn';
     btn.dataset.id = p.id;
     btn.innerHTML = `<span class="dot" style="background:${p.color}"></span>${p.name}`;
-    btn.addEventListener('click', () => selectPreset(p.id));
+    btn.addEventListener('click', () => {
+      lastPresetId = p.id;
+      selectPreset(p.id);
+    });
     presetGrid.appendChild(btn);
+  });
+
+  // Apply to all elements
+  $('#apply-all-btn').addEventListener('click', () => {
+    if (!lastPresetId) return;
+    const svg = $('#preview-area svg');
+    if (!svg) return;
+    const elements = svg.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, g, text');
+    const preset = presets.find(p => p.id === lastPresetId);
+    elements.forEach((el, i) => {
+      if (!elementAnimations[i]) elementAnimations[i] = getDefaultElementConfig();
+      elementAnimations[i].presetId = lastPresetId;
+      elementAnimations[i].speed = preset.duration;
+      applyOneAnimation(i);
+    });
+    selectedElementIndex = 0;
+    renderElements();
   });
 
   // Upload handlers
