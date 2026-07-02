@@ -9,7 +9,24 @@ import socketserver
 import os
 import sys
 import json
+import socket
 from pathlib import Path
+
+
+def get_hostname():
+    """Obtiene el hostname del sistema"""
+    return socket.gethostname()
+
+
+def get_local_ip():
+    """Obtiene la IP local de la máquina"""
+    try:
+        # Crear una conexión temporal para obtener la IP real
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("8.8.8.8", 80))
+            return s.getsockname()[0]
+    except Exception:
+        return "127.0.0.1"
 
 # Configuración
 SCRIPT_DIR = Path(__file__).parent.resolve()
@@ -75,6 +92,9 @@ def start_server(port):
     """Inicia el servidor HTTP"""
     os.chdir(SCRIPT_DIR)
     
+    hostname = get_hostname()
+    local_ip = get_local_ip()
+    
     class Handler(http.server.SimpleHTTPRequestHandler):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, directory=str(SCRIPT_DIR), **kwargs)
@@ -86,7 +106,11 @@ def start_server(port):
     try:
         with socketserver.TCPServer(("", port), Handler) as httpd:
             print()
-            print(f"🚀 Iniciando servidor en http://localhost:{port}")
+            print(f"🚀 Iniciando servidor en:")
+            print(f"   http://localhost:{port}")
+            print(f"   http://{hostname}:{port}")
+            print(f"   http://{local_ip}:{port}")
+            print()
             print(f"   Presiona Ctrl+C para detener")
             print()
             httpd.serve_forever()

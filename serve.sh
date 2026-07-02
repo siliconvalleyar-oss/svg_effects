@@ -4,6 +4,10 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CONFIG_DIR="$SCRIPT_DIR/config"
 CONFIG_FILE="$CONFIG_DIR/port.cfg"
 
+# Obtener hostname e IP local
+HOSTNAME=$(hostname)
+LOCAL_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
+
 # Crear carpeta config si no existe
 mkdir -p "$CONFIG_DIR"
 
@@ -78,7 +82,10 @@ read -p "  Selecciona una opción: " choice
 case $choice in
     1)
         echo ""
-        echo "🚀 Iniciando servidor en http://localhost:$current_port"
+        echo "🚀 Iniciando servidor en:"
+        echo "   http://localhost:$current_port"
+        echo "   http://$HOSTNAME:$current_port"
+        echo "   http://$LOCAL_IP:$current_port"
         python3 -m http.server "$current_port" -d "$SCRIPT_DIR"
         ;;
     2)
@@ -115,7 +122,10 @@ case $choice in
         echo "PORT=$new_port" > "$CONFIG_FILE"
         echo "✅ Puerto guardado en $CONFIG_FILE"
         echo ""
-        echo "🚀 Iniciando servidor en http://localhost:$new_port"
+        echo "🚀 Iniciando servidor en:"
+        echo "   http://localhost:$new_port"
+        echo "   http://$HOSTNAME:$new_port"
+        echo "   http://$LOCAL_IP:$new_port"
         python3 -m http.server "$new_port" -d "$SCRIPT_DIR"
         ;;
     3)
@@ -166,7 +176,10 @@ case $choice in
         echo "PORT=$quick_port" > "$CONFIG_FILE"
         echo "✅ Puerto guardado en $CONFIG_FILE"
         echo ""
-        echo "🚀 Iniciando servidor en http://localhost:$quick_port"
+        echo "🚀 Iniciando servidor en:"
+        echo "   http://localhost:$quick_port"
+        echo "   http://$HOSTNAME:$quick_port"
+        echo "   http://$LOCAL_IP:$quick_port"
         python3 -m http.server "$quick_port" -d "$SCRIPT_DIR"
         ;;
     4)
