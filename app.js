@@ -54,17 +54,38 @@
 
   // File list
   const fileList = $('#file-list');
-  const availableFiles = ['sample.svg'];
 
-  function renderFileList() {
+  function renderFileList(files) {
     fileList.innerHTML = '';
-    availableFiles.forEach(name => {
+    if (files.length === 0) {
+      fileList.innerHTML = '<span style="color:#666;font-size:12px;padding:8px">No hay archivos SVG</span>';
+      return;
+    }
+    files.forEach(name => {
       const btn = document.createElement('button');
       btn.className = 'file-item';
       btn.innerHTML = `<svg class="file-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="1" width="12" height="14" rx="2"/><path d="M5 5h6M5 8h6M5 11h3"/></svg>${name}`;
       btn.addEventListener('click', () => loadFromServer(name));
       fileList.appendChild(btn);
     });
+  }
+
+  async function fetchFileList() {
+    try {
+      const res = await fetch('files/');
+      if (!res.ok) {
+        renderFileList(['sample.svg']);
+        return;
+      }
+      const html = await res.text();
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      const links = doc.querySelectorAll('a[href$=".svg"]');
+      const files = Array.from(links).map(a => a.getAttribute('href')).filter(Boolean);
+      renderFileList(files.length ? files : ['sample.svg']);
+    } catch (e) {
+      renderFileList(['sample.svg']);
+    }
   }
 
   async function loadFromServer(name) {
@@ -79,7 +100,7 @@
     }
   }
 
-  renderFileList();
+  fetchFileList();
 
   // Build shape grid
   const shapeGrid = $('#shape-grid');
