@@ -5,6 +5,13 @@
 - Navegador web moderno (Chrome, Firefox, Safari, Edge)
 - Python 3 (para el servidor local)
 
+## Plataformas soportadas
+
+- Windows (7/8/10/11)
+- macOS
+- Linux (Ubuntu, Debian, etc.)
+- Raspberry Pi (Raspberry OS)
+
 ## Uso sin servidor
 
 Abrir directamente `index.html` en el navegador. Limitaciones:
@@ -13,24 +20,41 @@ Abrir directamente `index.html` en el navegador. Limitaciones:
 
 ## Uso con servidor
 
+### Mac / Linux / Raspberry Pi
+
 ```bash
-cd /home/bee/src/svg_animated
+cd svg_effects
+python3 serve.py
+```
+
+O con el script bash (solo Mac/Linux):
+
+```bash
 ./serve.sh 8080
 ```
 
-Abrir `http://localhost:8080` en el navegador.
+### Windows
+
+```cmd
+cd svg_effects
+python serve.py
+```
+
+O simplemente hacer doble clic en `serve.bat`.
 
 ### Puerto personalizado
 
 ```bash
-./serve.sh 3000
+# Mac / Linux / Raspberry Pi
+python3 serve.py 3000
+
+# Windows
+python serve.py 3000
 ```
 
 ### Detener servidor
 
-```bash
-pkill -f "python3 -m http.server"
-```
+Presiona `Ctrl+C` en la terminal.
 
 ## Estructura de archivos
 
