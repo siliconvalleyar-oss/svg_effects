@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SVG Animator</title>
   <link rel="stylesheet" href="styles.css">
+  <script src="https://unpkg.com/@rive-app/canvas@2.25.4/rive.js"></script>
 </head>
 <body>
 
@@ -180,6 +181,14 @@
       <p>Sube un SVG o elige una forma</p>
     </div>
     <div id="preview-area" style="display:none"></div>
+    <div id="rive-area" style="display:none">
+      <canvas id="rive-canvas" width="500" height="500"></canvas>
+      <div class="rive-controls">
+        <button class="playback-btn" id="rive-play-btn" title="Play">&#9654;</button>
+        <button class="playback-btn" id="rive-pause-btn" title="Pause">&#10074;&#10074;</button>
+        <button class="playback-btn" id="rive-stop-btn" title="Stop">&#9632;</button>
+      </div>
+    </div>
   </main>
 
   <!-- Right Panel - Elements -->

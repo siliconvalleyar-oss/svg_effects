@@ -100,19 +100,20 @@ def start_server(port):
             super().__init__(*args, directory=str(SCRIPT_DIR), **kwargs)
 
         def do_GET(self):
-            # Endpoint API para listar archivos SVG
+            # Endpoint API para listar archivos SVG y Rive
             if self.path == '/api/files':
                 files_dir = SCRIPT_DIR / 'files'
-                svg_files = []
+                result = []
                 if files_dir.exists():
-                    for f in sorted(files_dir.rglob('*.svg')):
-                        rel = f.relative_to(files_dir).as_posix()
-                        svg_files.append(rel)
+                    for ext in ['*.svg', '*.riv']:
+                        for f in sorted(files_dir.rglob(ext)):
+                            rel = f.relative_to(files_dir).as_posix()
+                            result.append({'name': rel, 'type': 'rive' if f.suffix == '.riv' else 'svg'})
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json')
                 self.send_header('Access-Control-Allow-Origin', '*')
                 self.end_headers()
-                self.wfile.write(json.dumps(svg_files).encode())
+                self.wfile.write(json.dumps(result).encode())
                 return
             super().do_GET()
 

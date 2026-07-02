@@ -266,6 +266,28 @@ input[type="range"]::-webkit-slider-thumb {
 
 #preview-area svg { width: 100%; height: 100%; max-width: 600px; max-height: 600px; }
 
+#rive-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  height: 100%;
+}
+
+#rive-canvas {
+  max-width: 500px;
+  max-height: 500px;
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+}
+
+.rive-controls {
+  display: flex;
+  gap: 8px;
+}
+
 /* Shape Grid */
 .shape-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
 

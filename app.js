@@ -54,20 +54,27 @@
 
   // File list
   const fileList = $('#file-list');
+  let currentRive = null;
 
   function renderFileList(files) {
     fileList.innerHTML = '';
     if (files.length === 0) {
-      fileList.innerHTML = '<span style="color:#666;font-size:12px;padding:8px">No hay archivos SVG</span>';
+      fileList.innerHTML = '<span style="color:#666;font-size:12px;padding:8px">No hay archivos</span>';
       return;
     }
-    files.forEach(name => {
+    files.forEach(file => {
+      const name = file.name || file;
+      const type = file.type || (name.endsWith('.riv') ? 'rive' : 'svg');
       const btn = document.createElement('button');
       btn.className = 'file-item';
       btn.dataset.name = name;
+      btn.dataset.type = type;
       const displayName = name.includes('/') ? name.split('/').pop() : name;
-      btn.innerHTML = `<svg class="file-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="1" width="12" height="14" rx="2"/><path d="M5 5h6M5 8h6M5 11h3"/></svg>${displayName}`;
-      btn.addEventListener('click', () => loadFromServer(name));
+      const icon = type === 'rive'
+        ? '<svg class="file-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v6M5 8h6"/></svg>'
+        : '<svg class="file-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="1" width="12" height="14" rx="2"/><path d="M5 5h6M5 8h6M5 11h3"/></svg>';
+      btn.innerHTML = `${icon}${displayName}`;
+      btn.addEventListener('click', () => loadFromServer(name, type));
       fileList.appendChild(btn);
     });
   }
@@ -76,27 +83,76 @@
     try {
       const res = await fetch('/api/files');
       if (!res.ok) {
-        renderFileList(['sample.svg']);
+        renderFileList([{ name: 'sample.svg', type: 'svg' }]);
         return;
       }
       const files = await res.json();
-      renderFileList(files.length ? files : ['sample.svg']);
+      renderFileList(files.length ? files : [{ name: 'sample.svg', type: 'svg' }]);
     } catch (e) {
-      renderFileList(['sample.svg']);
+      renderFileList([{ name: 'sample.svg', type: 'svg' }]);
     }
   }
 
-  async function loadFromServer(name) {
+  function stopRive() {
+    if (currentRive) {
+      currentRive.stop();
+      currentRive = null;
+    }
+    $('#rive-area').style.display = 'none';
+  }
+
+  async function loadFromServer(name, type) {
     try {
-      const res = await fetch('files/' + name);
-      if (!res.ok) return;
-      const text = await res.text();
-      loadSvgString(text);
+      stopRive();
+      if (type === 'rive') {
+        await loadRiveFile(name);
+      } else {
+        const res = await fetch('files/' + name);
+        if (!res.ok) return;
+        const text = await res.text();
+        loadSvgString(text);
+      }
       $$('.file-item').forEach(b => b.classList.toggle('active', b.dataset.name === name));
     } catch (e) {
       console.error('Error loading file:', e);
     }
   }
+
+  async function loadRiveFile(name) {
+    const area = $('#preview-area');
+    const riveArea = $('#rive-area');
+    area.style.display = 'none';
+    riveArea.style.display = 'flex';
+    $('#empty-state').style.display = 'none';
+    $('#presets-section').style.display = 'none';
+    $('#controls-section').style.display = 'none';
+    $('#export-section').style.display = 'none';
+    $('#mode-section').style.display = 'none';
+    $('#elements-panel').classList.remove('visible');
+
+    const canvas = $('#rive-canvas');
+    try {
+      currentRive = new Rive.Rive({
+        src: 'files/' + name,
+        canvas: canvas,
+        autoplay: true,
+        stateMachines: 'default',
+        onLoad: () => {
+          currentRive.resizeDrawingSurfaceToCanvas();
+        }
+      });
+    } catch (e) {
+      console.error('Error loading Rive file:', e);
+      riveArea.style.display = 'none';
+      area.style.display = 'flex';
+      $('#empty-state').style.display = '';
+    }
+  }
+
+  // Rive controls
+  $('#rive-play-btn').addEventListener('click', () => { if (currentRive) currentRive.play(); });
+  $('#rive-pause-btn').addEventListener('click', () => { if (currentRive) currentRive.pause(); });
+  $('#rive-stop-btn').addEventListener('click', () => { if (currentRive) currentRive.stop(); });
 
   fetchFileList();
 
