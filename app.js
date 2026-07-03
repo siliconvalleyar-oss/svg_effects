@@ -698,19 +698,12 @@
       item.appendChild(visBtn);
 
       item.addEventListener('click', () => {
-        if (isMultiSelectMode) {
-          toggleElementSelection(i);
-        } else {
-          selectElement(i);
-        }
+        toggleElementSelection(i);
+        selectElement(i);
       });
       item.addEventListener('contextmenu', e => {
         e.preventDefault();
-        if (isMultiSelectMode && selectedGroupElements.length >= 1) {
-          showContextMenu(e, [...selectedGroupElements]);
-        } else {
-          showContextMenu(e, [i]);
-        }
+        showContextMenu(e, selectedGroupElements.length >= 1 ? [...selectedGroupElements] : [i]);
       });
 
       grid.appendChild(item);
@@ -1487,6 +1480,13 @@
     return -1;
   }
 
+  function getElementByIndex(index) {
+    const svg = $('#preview-area svg');
+    if (!svg) return null;
+    const elements = svg.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, g, text');
+    return elements[index] || null;
+  }
+
   // ===== CONTEXT MENU =====
 
   let contextMenuTargets = [];
@@ -1501,8 +1501,8 @@
 
     menu.innerHTML = '';
 
-    // Check if any selected element belongs to a group
     const belongsToGroup = indices.some(i => Object.keys(elementGroups).find(gid => elementGroups[gid].elements.includes(i)));
+    const anyHidden = indices.some(i => { const el = getElementByIndex(i); return el && el.style.display === 'none'; });
 
     if (indices.length >= 2) {
       addMenuItem(menu, 'Agrupar', () => { createGroupFromSelection(contextMenuTargets); hideContextMenu(); });
@@ -1523,7 +1523,10 @@
         renderElements();
       });
     }
-    addMenuItem(menu, 'Ocultar', () => { toggleVisibility(contextMenuTargets); hideContextMenu(); });
+    addMenuItem(menu, anyHidden ? 'Ver' : 'Ocultar', () => {
+      toggleVisibility(contextMenuTargets);
+      hideContextMenu();
+    });
     addMenuItem(menu, 'Eliminar', () => { contextMenuTargets.forEach(i => removeElement(i)); hideContextMenu(); renderElements(); });
 
     menu.style.display = 'block';
