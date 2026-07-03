@@ -15,6 +15,8 @@
     { name: 'Temblar',    id: 'shake',  color: '#e67e22', duration: 0.5, easing: 'ease-in-out' },
     { name: 'Flotar',     id: 'float',  color: '#9b59b6', duration: 3,   easing: 'ease-in-out' },
     { name: 'Levitar',    id: 'levitate',color: '#1abc9c', duration: 3.5, easing: 'ease-in-out' },
+    { name: 'Arco',       id: 'arc',    color: '#f39c12', duration: 4,   easing: 'ease-in-out' },
+    { name: 'Radiar',     id: 'radiate',color: '#e67e22', duration: 4,   easing: 'ease-in-out' },
     { name: 'Girar',      id: 'spin',   color: '#3498db', duration: 1.2, easing: 'ease-in-out' },
     { name: 'Brillar',    id: 'glow',   color: '#e74c3c', duration: 2,   easing: 'ease-in-out' },
   ];
@@ -639,7 +641,24 @@
 
       const thumbSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
       thumbSvg.setAttribute('viewBox', '0 0 200 200');
-      thumbSvg.appendChild(el.cloneNode(true));
+      const clone = el.cloneNode(true);
+      try {
+        const bbox = el.getBBox();
+        if (bbox.width > 0 && bbox.height > 0) {
+          const pad = 10;
+          const scale = Math.min(180 / bbox.width, 180 / bbox.height, 5);
+          const cx = bbox.x + bbox.width / 2;
+          const cy = bbox.y + bbox.height / 2;
+          const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+          g.setAttribute('transform', `translate(100, 100) scale(${scale}) translate(${-cx}, ${-cy})`);
+          g.appendChild(clone);
+          thumbSvg.appendChild(g);
+        } else {
+          thumbSvg.appendChild(clone);
+        }
+      } catch (e) {
+        thumbSvg.appendChild(clone);
+      }
 
       const item = document.createElement('div');
       item.className = 'element-thumb' + (selectedElementIndex === i ? ' selected' : '');
@@ -829,7 +848,7 @@
         updateSpeedDisplay(group.elements[0]);
         $('#delay-slider').value = group.config.delay;
         updateDelayDisplay(group.elements[0]);
-        const translateBased = ['slide', 'bounce', 'shake', 'float', 'gravity', 'levitate'];
+        const translateBased = ['slide', 'bounce', 'shake', 'float', 'gravity', 'levitate', 'arc', 'radiate'];
         $('#direction-controls').style.display = translateBased.includes(group.config.presetId) ? '' : 'none';
         $('#oval-controls').style.display = group.config.presetId === 'oval' ? '' : 'none';
       }
@@ -911,7 +930,7 @@
       $('#oval-angle-val').textContent = cfg.ovalAngle + 'deg';
     }
 
-    const translateBased = ['slide', 'bounce', 'shake', 'float', 'gravity', 'levitate'];
+    const translateBased = ['slide', 'bounce', 'shake', 'float', 'gravity', 'levitate', 'arc', 'radiate'];
     const showDirection = hasPreset && translateBased.includes(cfg.presetId);
     $('#direction-controls').style.display = showDirection ? '' : 'none';
     if (showDirection) {
@@ -1008,6 +1027,15 @@
       case 'float':
         kf = `@keyframes ${name} { 0%,100% { transform: translate(0,0); } 50% { transform: translate(${15*cos}px,${15*sin}px); } }`;
         break;
+      case 'levitate':
+        kf = `@keyframes ${name} { 0%,100% { transform: translate(0,0); } 25% { transform: translate(${-12*cos}px,${-12*sin}px); } 50% { transform: translate(${-25*cos}px,${-25*sin}px); } 75% { transform: translate(${-12*cos}px,${-12*sin}px); } }`;
+        break;
+      case 'arc':
+        kf = `@keyframes ${name} { 0% { transform: translate(${-80*cos}px,${-80*sin}px); } 25% { transform: translate(${-40*cos}px,${-80*sin - 60}px); } 50% { transform: translate(0,${-80*sin - 80}px); } 75% { transform: translate(${40*cos}px,${-80*sin - 60}px); } 100% { transform: translate(${80*cos}px,${-80*sin}px); } }`;
+        break;
+      case 'radiate':
+        kf = `@keyframes ${name} { 0% { transform: translate(${-80*cos}px,${-80*sin}px); filter: drop-shadow(0 0 2px rgba(230,126,34,0.2)); } 25% { transform: translate(${-40*cos}px,${-80*sin - 60}px); filter: drop-shadow(0 0 8px rgba(230,126,34,0.4)); } 50% { transform: translate(0,${-80*sin - 80}px); filter: drop-shadow(0 0 24px rgba(230,126,34,0.9)); } 75% { transform: translate(${40*cos}px,${-80*sin - 60}px); filter: drop-shadow(0 0 8px rgba(230,126,34,0.4)); } 100% { transform: translate(${80*cos}px,${-80*sin}px); filter: drop-shadow(0 0 2px rgba(230,126,34,0.2)); } }`;
+        break;
       case 'gravity':
         kf = `@keyframes ${name} { 0% { transform: translate(${-100*cos}px,${-100*sin}px); } 30% { transform: translate(${80*cos}px,${80*sin}px); } 50% { transform: translate(${-40*cos}px,${-40*sin}px); } 70% { transform: translate(${30*cos}px,${30*sin}px); } 85% { transform: translate(${-10*cos}px,${-10*sin}px); } 100% { transform: translate(0,0); } }`;
         break;
@@ -1062,7 +1090,7 @@
     el.style.transformBox = 'view-box';
 
     const preset = presets.find(p => p.id === cfg.presetId);
-    const isTranslateBased = ['slide', 'bounce', 'shake', 'float', 'gravity', 'levitate'].includes(cfg.presetId);
+      const isTranslateBased = ['slide', 'bounce', 'shake', 'float', 'gravity', 'levitate', 'arc', 'radiate'].includes(cfg.presetId);
     const hasAngle = cfg.directionAngle && cfg.directionAngle !== 0;
 
     let animName;
@@ -1131,7 +1159,7 @@
     $('#speed-slider').value = cfg.speed;
     updateSpeedDisplay(selectedElementIndex);
     $('#oval-controls').style.display = id === 'oval' ? '' : 'none';
-    const translateBased = ['slide', 'bounce', 'shake', 'float', 'gravity', 'levitate'];
+    const translateBased = ['slide', 'bounce', 'shake', 'float', 'gravity', 'levitate', 'arc', 'radiate'];
     $('#direction-controls').style.display = translateBased.includes(id) ? '' : 'none';
 
     // Check if element belongs to a group
@@ -1277,6 +1305,33 @@
     else enterPiecesMode();
   });
 
+  function bakeAnimations() {
+    const svg = $('#preview-area svg');
+    if (!svg) return;
+    svg.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, g, text').forEach(el => {
+      if (el.style.animation) {
+        const computed = getComputedStyle(el).transform;
+        el.dataset.savedAnim = el.style.animation;
+        el.dataset.savedOrigin = el.style.transformOrigin;
+        el.style.animation = 'none';
+        el.style.transform = computed !== 'none' ? computed : '';
+      }
+    });
+  }
+
+  function restoreAnimations() {
+    const svg = $('#preview-area svg');
+    if (!svg) return;
+    svg.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, g, text').forEach(el => {
+      if (el.dataset.savedAnim) {
+        el.style.animation = el.dataset.savedAnim;
+        el.style.transformOrigin = el.dataset.savedOrigin || 'center center';
+        delete el.dataset.savedAnim;
+        delete el.dataset.savedOrigin;
+      }
+    });
+  }
+
   function enterPiecesMode() {
     isPiecesMode = true;
     $('#mode-toggle').classList.add('active');
@@ -1286,7 +1341,7 @@
     area.classList.add('mode-select');
     const svg = area.querySelector('svg');
     if (!svg) return;
-    setAllAnimationsPlayState('paused');
+    bakeAnimations();
     svg.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, text, g').forEach(el => {
       el.addEventListener('pointerdown', onElementPointerDown);
     });
@@ -1301,12 +1356,13 @@
     area.classList.remove('mode-select');
     const svg = area.querySelector('svg');
     if (!svg) { selectedElement = null; return; }
-    setAllAnimationsPlayState(animationPlaying ? 'running' : 'paused');
     svg.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, text, g').forEach(el => {
       el.removeEventListener('pointerdown', onElementPointerDown);
       el.classList.remove('element-selected');
       el.style.removeProperty('transform');
     });
+    restoreAnimations();
+    setAllAnimationsPlayState(animationPlaying ? 'running' : 'paused');
     selectedElement = null;
   }
 
@@ -1375,7 +1431,7 @@
       if (!cfg || !cfg.presetId) return;
       const preset = presets.find(p => p.id === cfg.presetId);
 
-      const isTranslateBased = ['slide', 'bounce', 'shake', 'float', 'gravity', 'levitate'].includes(cfg.presetId);
+    const isTranslateBased = ['slide', 'bounce', 'shake', 'float', 'gravity', 'levitate', 'arc', 'radiate'].includes(cfg.presetId);
       const hasAngle = cfg.directionAngle && cfg.directionAngle !== 0;
 
       let animName;
@@ -1402,6 +1458,12 @@
           case 'levitate':
             kf = `@keyframes ${dirName} { 0%,100% { transform: translate(0,0); } 25% { transform: translate(${-12*cos}px,${-12*sin}px); } 50% { transform: translate(${-25*cos}px,${-25*sin}px); } 75% { transform: translate(${-12*cos}px,${-12*sin}px); } }`;
             break;
+          case 'arc':
+            kf = `@keyframes ${dirName} { 0% { transform: translate(${-80*cos}px,${-80*sin}px); } 25% { transform: translate(${-40*cos}px,${-80*sin - 60}px); } 50% { transform: translate(0,${-80*sin - 80}px); } 75% { transform: translate(${40*cos}px,${-80*sin - 60}px); } 100% { transform: translate(${80*cos}px,${-80*sin}px); } }`;
+            break;
+          case 'radiate':
+            kf = `@keyframes ${dirName} { 0% { transform: translate(${-80*cos}px,${-80*sin}px); filter: drop-shadow(0 0 2px rgba(230,126,34,0.2)); } 25% { transform: translate(${-40*cos}px,${-80*sin - 60}px); filter: drop-shadow(0 0 8px rgba(230,126,34,0.4)); } 50% { transform: translate(0,${-80*sin - 80}px); filter: drop-shadow(0 0 24px rgba(230,126,34,0.9)); } 75% { transform: translate(${40*cos}px,${-80*sin - 60}px); filter: drop-shadow(0 0 8px rgba(230,126,34,0.4)); } 100% { transform: translate(${80*cos}px,${-80*sin}px); filter: drop-shadow(0 0 2px rgba(230,126,34,0.2)); } }`;
+            break;
           case 'gravity':
             kf = `@keyframes ${dirName} { 0% { transform: translate(${-100*cos}px,${-100*sin}px); } 30% { transform: translate(${80*cos}px,${80*sin}px); } 50% { transform: translate(${-40*cos}px,${-40*sin}px); } 70% { transform: translate(${30*cos}px,${30*sin}px); } 85% { transform: translate(${-10*cos}px,${-10*sin}px); } 100% { transform: translate(0,0); } }`;
             break;
@@ -1421,6 +1483,8 @@
           case 'shake': animName = 'svgShake'; if (!embeddedStyle.includes('svgShake')) { embeddedStyle += `@keyframes svgShake { 0%,100% { transform: translateX(0); } 10%,30%,50%,70%,90% { transform: translateX(-8px); } 20%,40%,60%,80% { transform: translateX(8px); } }\n`; } break;
           case 'float': animName = 'svgFloat'; if (!embeddedStyle.includes('svgFloat')) { embeddedStyle += `@keyframes svgFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-15px); } }\n`; } break;
           case 'levitate': animName = 'svgLevitate'; if (!embeddedStyle.includes('svgLevitate')) { embeddedStyle += `@keyframes svgLevitate { 0%,100% { transform: translateY(0) scale(1); } 25% { transform: translateY(-12px) scale(1.02); } 50% { transform: translateY(-25px) scale(0.98); } 75% { transform: translateY(-12px) scale(1.01); } }\n`; } break;
+          case 'arc': animName = 'svgArc'; if (!embeddedStyle.includes('svgArc')) { embeddedStyle += `@keyframes svgArc { 0% { transform: translate(-80px,30px); } 25% { transform: translate(-40px,-30px); } 50% { transform: translate(0,-50px); } 75% { transform: translate(40px,-30px); } 100% { transform: translate(80px,30px); } }\n`; } break;
+          case 'radiate': animName = 'svgRadiate'; if (!embeddedStyle.includes('svgRadiate')) { embeddedStyle += `@keyframes svgRadiate { 0% { transform: translate(-80px,30px); filter: drop-shadow(0 0 2px rgba(230,126,34,0.2)); } 25% { transform: translate(-40px,-30px); filter: drop-shadow(0 0 8px rgba(230,126,34,0.4)); } 50% { transform: translate(0,-50px); filter: drop-shadow(0 0 24px rgba(230,126,34,0.9)); } 75% { transform: translate(40px,-30px); filter: drop-shadow(0 0 8px rgba(230,126,34,0.4)); } 100% { transform: translate(80px,30px); filter: drop-shadow(0 0 2px rgba(230,126,34,0.2)); } }\n`; } break;
           case 'spin': animName = 'svgSpin'; if (!embeddedStyle.includes('svgSpin')) { embeddedStyle += `@keyframes svgSpin { 0% { transform: rotate(0deg) scale(1); } 50% { transform: rotate(180deg) scale(0.85); } 100% { transform: rotate(360deg) scale(1); } }\n`; } break;
           case 'glow': animName = 'svgGlow'; if (!embeddedStyle.includes('svgGlow')) { embeddedStyle += `@keyframes svgGlow { 0%,100% { filter: drop-shadow(0 0 4px rgba(108,92,231,0.3)); } 50% { filter: drop-shadow(0 0 24px rgba(108,92,231,0.9)); } }\n`; } break;
         }

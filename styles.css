@@ -637,6 +637,8 @@ input[type="range"]::-webkit-slider-thumb {
 .anim-shake { animation: svgShake var(--dur) var(--easing) var(--iter) var(--dir); }
 .anim-float { animation: svgFloat var(--dur) var(--easing) var(--iter) var(--dir); }
 .anim-levitate { animation: svgLevitate var(--dur) var(--easing) var(--iter) var(--dir); }
+.anim-arc { animation: svgArc var(--dur) var(--easing) var(--iter) var(--dir); }
+.anim-radiate { animation: svgRadiate var(--dur) var(--easing) var(--iter) var(--dir); }
 .anim-spin { animation: svgSpin var(--dur) var(--easing) var(--iter) var(--dir); }
 .anim-glow { animation: svgGlow var(--dur) var(--easing) var(--iter) var(--dir); }
 
@@ -688,6 +690,20 @@ input[type="range"]::-webkit-slider-thumb {
   25% { transform: translateY(-12px) scale(1.02); }
   50% { transform: translateY(-25px) scale(0.98); }
   75% { transform: translateY(-12px) scale(1.01); }
+}
+@keyframes svgArc {
+  0% { transform: translate(-80px,30px); }
+  25% { transform: translate(-40px,-30px); }
+  50% { transform: translate(0,-50px); }
+  75% { transform: translate(40px,-30px); }
+  100% { transform: translate(80px,30px); }
+}
+@keyframes svgRadiate {
+  0% { transform: translate(-80px,30px); filter: drop-shadow(0 0 2px rgba(230,126,34,0.2)); }
+  25% { transform: translate(-40px,-30px); filter: drop-shadow(0 0 8px rgba(230,126,34,0.4)); }
+  50% { transform: translate(0,-50px); filter: drop-shadow(0 0 24px rgba(230,126,34,0.9)); }
+  75% { transform: translate(40px,-30px); filter: drop-shadow(0 0 8px rgba(230,126,34,0.4)); }
+  100% { transform: translate(80px,30px); filter: drop-shadow(0 0 2px rgba(230,126,34,0.2)); }
 }
 @keyframes svgSpin {
   0% { transform: rotate(0deg) scale(1); }

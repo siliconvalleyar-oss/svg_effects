@@ -1,0 +1,4 @@
+# Hashes of file build rules.
+6b1becf0c838c955cd574b6a4b993b31 CMakeFiles/svg-animator_autogen
+6b1becf0c838c955cd574b6a4b993b31 CMakeFiles/svg-animator_autogen_timestamp_deps
+c242f47ad1de0b6223ef55ce94408a5a svg-animator_autogen/timestamp

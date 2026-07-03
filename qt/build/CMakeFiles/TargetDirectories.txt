@@ -1,0 +1,5 @@
+/mnt/disk/src/desktop_src/svg_animated/qt/build/CMakeFiles/svg-animator.dir
+/mnt/disk/src/desktop_src/svg_animated/qt/build/CMakeFiles/edit_cache.dir
+/mnt/disk/src/desktop_src/svg_animated/qt/build/CMakeFiles/rebuild_cache.dir
+/mnt/disk/src/desktop_src/svg_animated/qt/build/CMakeFiles/svg-animator_autogen_timestamp_deps.dir
+/mnt/disk/src/desktop_src/svg_animated/qt/build/CMakeFiles/svg-animator_autogen.dir
