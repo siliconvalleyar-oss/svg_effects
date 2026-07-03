@@ -11,9 +11,11 @@
 ### app.js
 - **Presets**: Array de animaciones disponibles
 - **Shapes**: SVGs de formas predefinidas
-- **State**: Estado global (currentSvg, currentPreset, settings)
+- **State**: Estado global (currentSvg, elementAnimations, slides)
 - **File browser**: Carga de SVGs del servidor
 - **Animation engine**: Aplicacion y control de animaciones
+- **Direction system**: Angulo y sentido para animaciones de translacion
+- **Group system**: Agrupar elementos para aplicar misma animacion
 - **Pieces mode**: Seleccion y movimiento de elementos
 - **Export**: Generacion de SVG animado
 
@@ -42,10 +44,9 @@
 }
 ```
 
-4. Agregar en el export keyframeMap en `app.js`:
-```js
-'mi-anim': `@keyframes svgMiAnim { ... }`
-```
+4. Si la animacion usa translacion y soporta direccion, agregarla en `isTranslateBased` en `applyOneAnimation` y en `ensureDirectionKeyframes`.
+
+5. Agregar keyframe en export (seccion de keyframes individuales en `app.js`).
 
 ## Agregar nueva forma
 

@@ -6,14 +6,11 @@
 |----|--------|-------------|-------------------|
 | `rotate` | Rotar | Rotacion continua 360 | linear |
 | `wheel` | Rueda | Rotacion continua con pasos de 90 | linear |
-| `spiral` | Espiral | Movimiento espiral con rotacion y escala | ease-in-out |
 | `pulse` | Pulsar | Escala arriba/abajo | ease-in-out |
 | `bounce` | Rebotar | Rebote vertical | ease-in-out |
 | `gravity` | Gravedad | Caida con rebote realista | ease-out |
 | `slide` | Deslizar | Movimiento horizontal | ease-in-out |
 | `oval` | Ovalo | Trayectoria eliptica configurable | linear |
-| `elastic` | Elastico | Efecto de resorte | ease-out |
-| `wave` | Wave | Movimiento ondulatorio vertical | ease-in-out |
 | `fade` | Desvanecer | Oscurecimiento opacidad | ease-in-out |
 | `draw` | Dibujar | Dibujado de trazos (stroke) | ease-in-out |
 | `shake` | Temblar | Vibracion horizontal | ease-in-out |
@@ -21,14 +18,9 @@
 | `spin` | Girar | Giro con escala | ease-in-out |
 | `glow` | Brillar | Brillo con drop-shadow | ease-in-out |
 
-## Ejes de referencia (transform-origin)
+## Sentido / Angulo de movimiento
 
-Cada animacion respeta el eje de transformacion configurado:
-
-- **X**: 0% (izquierda) a 100% (derecha), default: 50%
-- **Y**: 0% (arriba) a 100% (abajo), default: 50%
-
-Ejemplo: Para rotar desde la esquina superior izquierda, usar X=0%, Y=0%.
+Las animaciones basadas en translacion (slide, bounce, shake, float, gravity) soportan control de direccion mediante angulo (0-360°) con previsualizacion de trayectoria.
 
 ## Efectos con controles especiales
 
@@ -44,14 +36,6 @@ Ejemplo: Para rotar desde la esquina superior izquierda, usar X=0%, Y=0%.
 ### Dibujar
 - Animacion de stroke-dashoffset
 - Funciona mejor con SVGs que tengan trazos (stroke)
-
-### Espiral
-- Combina rotacion con escala
-- Crea efecto de espiral entrante/saliente
-
-### Elastico
-- Efecto de resorte con sobreoscilacion
-- Escala de 0.3 a 1.1 con rebotes
 
 ## Easing functions disponibles
 

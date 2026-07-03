@@ -59,8 +59,9 @@
       <div class="control-group">
         <div class="control-row">
           <label>Velocidad</label>
-          <input type="range" id="speed-slider" min="0.2" max="5" step="0.1" value="1">
+          <input type="range" id="speed-slider" min="0.2" max="16" step="0.1" value="16">
           <span class="value" id="speed-value">1.0s</span>
+          <input type="number" id="speed-max" class="max-input" value="16" min="1" max="999" title="Velocidad máxima">
         </div>
         <div class="control-row">
           <label>Retraso</label>
@@ -128,6 +129,23 @@
     <div class="section" id="export-section" style="display:none">
       <div class="section-title">Exportar</div>
       <button class="main-btn primary" id="export-btn">Descargar SVG Animado</button>
+      <button class="main-btn secondary" id="boundary-toggle" style="width:100%;margin-top:6px;font-size:10px">☐ Mostrar límite</button>
+    </div>
+
+    <div class="section" id="history-section" style="display:none">
+      <div class="section-title">Historial</div>
+      <div class="history-controls">
+        <button class="history-btn" id="undo-btn" disabled title="Deshacer (Ctrl+Z)">↩ Deshacer</button>
+        <button class="history-btn" id="redo-btn" disabled title="Rehacer (Ctrl+Shift+Z)">↪ Rehacer</button>
+      </div>
+      <button class="main-btn secondary" id="reset-btn" title="Resetear todo" style="margin-top:6px;width:100%">↺ Resetear</button>
+    </div>
+
+    <div class="section" id="bg-section" style="display:none">
+      <div class="section-title">Fondo de referencia</div>
+      <button class="main-btn secondary" id="bg-upload-btn" style="width:100%;font-size:10px">+ Agregar imagen</button>
+      <input type="file" id="bg-file-input" accept="image/png,image/jpeg,image/jpg" style="display:none">
+      <div id="bg-container"></div>
     </div>
 
     <div class="section slides-section" id="slides-section">

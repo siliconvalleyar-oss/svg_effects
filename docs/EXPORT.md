@@ -2,13 +2,14 @@
 
 ## SVG Animado
 
-El boton "Descargar SVG Animado" genera un archivo `.svg` autocontenido con la animacion CSS embebida.
+El boton "Descargar SVG Animado" genera un archivo `.svg` autocontenido con las animaciones CSS embebidas para cada elemento.
 
 ## Que se exporta
 
 - El SVG original con todos sus elementos
-- Un elemento `<style>` con los keyframes CSS de la animacion seleccionada
-- Variables CSS para configuracion (duracion, easing, etc.)
+- Un elemento `<style>` con los keyframes CSS de cada animacion
+- Cada elemento animado lleva un atributo `data-anim-index` para selectores CSS precisos
+- Animaciones independientes por pieza, cada una con su configuracion individual
 
 ## Estructura del SVG exportado
 
@@ -16,17 +17,17 @@ El boton "Descargar SVG Animado" genera un archivo `.svg` autocontenido con la a
 <?xml version="1.0" encoding="UTF-8"?>
 <svg viewBox="0 0 200 200">
   <style>
-    svg {
-      transform-origin: center center;
-      transform-box: fill-box;
-      animation: svgRotate 2s linear infinite normal;
-    }
     @keyframes svgRotate {
       from { transform: rotate(0deg); }
       to { transform: rotate(360deg); }
     }
+    [data-anim-index="0"] {
+      transform-origin: center center;
+      transform-box: fill-box;
+      animation: svgRotate 2s linear infinite normal;
+    }
   </style>
-  <!-- elementos SVG originales -->
+  <circle data-anim-index="0" cx="100" cy="100" r="70"/>
 </svg>
 ```
 
@@ -40,5 +41,4 @@ El boton "Descargar SVG Animado" genera un archivo `.svg` autocontenido con la a
 ## No exporta
 
 - Posiciones del modo piezas (solo efecto en preview)
-- Configuracion de eje de referencia (se usa default)
 - Efectos que requieren JavaScript

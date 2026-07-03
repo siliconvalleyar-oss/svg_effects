@@ -14,6 +14,7 @@
     { name: 'Dibujar',    id: 'draw',   color: '#1abc9c', duration: 2,   easing: 'ease-in-out' },
     { name: 'Temblar',    id: 'shake',  color: '#e67e22', duration: 0.5, easing: 'ease-in-out' },
     { name: 'Flotar',     id: 'float',  color: '#9b59b6', duration: 3,   easing: 'ease-in-out' },
+    { name: 'Levitar',    id: 'levitate',color: '#1abc9c', duration: 3.5, easing: 'ease-in-out' },
     { name: 'Girar',      id: 'spin',   color: '#3498db', duration: 1.2, easing: 'ease-in-out' },
     { name: 'Brillar',    id: 'glow',   color: '#e74c3c', duration: 2,   easing: 'ease-in-out' },
   ];
@@ -48,6 +49,271 @@
   let selectedGroupElements = []; // multi-select indices
   let isMultiSelectMode = false;
   let nextGroupId = 1;
+
+  // Undo/redo history
+  let undoStack = [];
+  let undoIndex = -1;
+  const MAX_UNDO = 50;
+
+  function pushHistory() {
+    if (undoIndex < undoStack.length - 1) undoStack = undoStack.slice(0, undoIndex + 1);
+    undoStack.push({
+      animations: JSON.parse(JSON.stringify(elementAnimations)),
+      groups: JSON.parse(JSON.stringify(elementGroups))
+    });
+    if (undoStack.length > MAX_UNDO) undoStack.shift();
+    undoIndex = undoStack.length - 1;
+    updateUndoButtons();
+  }
+
+  function undo() {
+    if (undoIndex <= 0) return;
+    undoIndex--;
+    restoreHistory(undoStack[undoIndex]);
+  }
+
+  function redo() {
+    if (undoIndex >= undoStack.length - 1) return;
+    undoIndex++;
+    restoreHistory(undoStack[undoIndex]);
+  }
+
+  function restoreHistory(state) {
+    elementAnimations = JSON.parse(JSON.stringify(state.animations));
+    elementGroups = JSON.parse(JSON.stringify(state.groups));
+    if (selectedElementIndex !== null) loadElementConfig(selectedElementIndex);
+    renderElements();
+    applyAllAnimations();
+    updateUndoButtons();
+  }
+
+  function updateUndoButtons() {
+    const undoBtn = $('#undo-btn');
+    const redoBtn = $('#redo-btn');
+    if (undoBtn) undoBtn.disabled = undoIndex <= 0;
+    if (redoBtn) redoBtn.disabled = undoIndex >= undoStack.length - 1;
+  }
+
+  // Zoom
+  let zoomLevel = 1;
+  function setupZoom() {
+    const area = $('#preview-area');
+    if (!area) return;
+    let zoomBar = $('#zoom-bar');
+    if (!zoomBar) {
+      zoomBar = document.createElement('div');
+      zoomBar.id = 'zoom-bar';
+      zoomBar.innerHTML = '<button class="zoom-btn" id="zoom-out" title="Alejar">−</button><span id="zoom-level">100%</span><button class="zoom-btn" id="zoom-in" title="Acercar">+</button>';
+      area.appendChild(zoomBar);
+      $('#zoom-out').addEventListener('click', () => { zoomLevel = Math.max(0.2, zoomLevel / 1.3); applyZoom(); });
+      $('#zoom-in').addEventListener('click', () => { zoomLevel = Math.min(5, zoomLevel * 1.3); applyZoom(); });
+      // Dragging to reposition
+      let drag = null;
+      zoomBar.addEventListener('pointerdown', e => {
+        if (e.target.tagName === 'BUTTON') return;
+        drag = { startX: e.clientX, startY: e.clientY, left: zoomBar.offsetLeft, top: zoomBar.offsetTop };
+        zoomBar.setPointerCapture(e.pointerId);
+      });
+      zoomBar.addEventListener('pointermove', e => {
+        if (!drag) return;
+        const dx = e.clientX - drag.startX;
+        const dy = e.clientY - drag.startY;
+        zoomBar.style.right = '';
+        zoomBar.style.bottom = '';
+        zoomBar.style.left = (drag.left + dx) + 'px';
+        zoomBar.style.top = (drag.top + dy) + 'px';
+      });
+      zoomBar.addEventListener('pointerup', () => { drag = null; });
+      zoomBar.addEventListener('pointercancel', () => { drag = null; });
+    }
+  }
+  function applyZoom() {
+    const svg = $('#preview-area svg');
+    if (svg) svg.style.transform = `scale(${zoomLevel})`;
+    const zl = $('#zoom-level');
+    if (zl) zl.textContent = Math.round(zoomLevel * 100) + '%';
+  }
+
+  // Boundary frame (viewBox visual guide)
+  let boundaryActive = false;
+  function toggleBoundary() {
+    boundaryActive = !boundaryActive;
+    const frame = $('#boundary-frame');
+    if (frame) frame.style.display = boundaryActive ? '' : 'none';
+    const btn = $('#boundary-toggle');
+    if (btn) btn.classList.toggle('active', boundaryActive);
+  }
+
+  function setupBoundary() {
+    const area = $('#preview-area');
+    if (!area || $('#boundary-frame')) return;
+    const frame = document.createElement('div');
+    frame.id = 'boundary-frame';
+    frame.className = 'boundary-frame';
+    frame.style.display = boundaryActive ? '' : 'none';
+    area.appendChild(frame);
+    // Resize handles
+    for (const pos of ['nw', 'ne', 'sw', 'se']) {
+      const handle = document.createElement('div');
+      handle.className = 'boundary-handle ' + pos;
+      handle.addEventListener('pointerdown', e => startBoundaryResize(e, pos));
+      frame.appendChild(handle);
+    }
+  }
+
+  function updateBoundary() {
+    const frame = $('#boundary-frame');
+    if (!frame) return;
+    const svg = $('#preview-area svg');
+    if (!svg) { frame.style.display = 'none'; return; }
+    const vb = svg.getAttribute('viewBox');
+    if (!vb) return;
+    const parts = vb.trim().split(/\s+/).map(Number);
+    if (parts.length < 4) return;
+    const svgRect = svg.getBoundingClientRect();
+    const areaRect = $('#preview-area').getBoundingClientRect();
+    const scaleX = svgRect.width / parts[2];
+    const scaleY = svgRect.height / parts[3];
+    frame.style.left = (svgRect.left - areaRect.left) + 'px';
+    frame.style.top = (svgRect.top - areaRect.top) + 'px';
+    frame.style.width = svgRect.width + 'px';
+    frame.style.height = svgRect.height + 'px';
+  }
+
+  let boundaryDrag = null;
+  function startBoundaryResize(e, pos) {
+    e.preventDefault();
+    const svg = $('#preview-area svg');
+    if (!svg) return;
+    const vb = svg.getAttribute('viewBox');
+    if (!vb) return;
+    const parts = vb.trim().split(/\s+/).map(Number);
+    const startX = e.clientX, startY = e.clientY;
+    const startVb = { x: parts[0], y: parts[1], w: parts[2], h: parts[3] };
+    const svgRect = svg.getBoundingClientRect();
+    const scaleX = svgRect.width / startVb.w;
+    const scaleY = svgRect.height / startVb.h;
+    boundaryDrag = { pos, startX, startY, startVb, scaleX, scaleY };
+    document.addEventListener('pointermove', onBoundaryMove);
+    document.addEventListener('pointerup', stopBoundaryResize);
+  }
+
+  function onBoundaryMove(e) {
+    if (!boundaryDrag) return;
+    const dx = (e.clientX - boundaryDrag.startX) / boundaryDrag.scaleX;
+    const dy = (e.clientY - boundaryDrag.startY) / boundaryDrag.scaleY;
+    const vb = { ...boundaryDrag.startVb };
+    const p = boundaryDrag.pos;
+    if (p.includes('w')) { vb.x += dx; vb.w -= dx; }
+    if (p.includes('e')) vb.w += dx;
+    if (p.includes('n')) { vb.y += dy; vb.h -= dy; }
+    if (p.includes('s')) vb.h += dy;
+    if (vb.w < 10) vb.w = 10;
+    if (vb.h < 10) vb.h = 10;
+    const svg = $('#preview-area svg');
+    if (svg) svg.setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.w} ${vb.h}`);
+    updateBoundary();
+  }
+
+  function stopBoundaryResize() {
+    boundaryDrag = null;
+    document.removeEventListener('pointermove', onBoundaryMove);
+    document.removeEventListener('pointerup', stopBoundaryResize);
+  }
+
+  // Background images
+  let backgroundImages = [];
+  function addBackgroundImage(file) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const id = 'bg_' + Date.now();
+      backgroundImages.push({ id, name: file.name, dataUrl: e.target.result, zIndex: 0 });
+      renderBackgrounds();
+    };
+    reader.readAsDataURL(file);
+  }
+  function removeBackgroundImage(id) {
+    backgroundImages = backgroundImages.filter(b => b.id !== id);
+    renderBackgrounds();
+  }
+  function moveBackground(id, dir) {
+    const idx = backgroundImages.findIndex(b => b.id === id);
+    if (idx === -1) return;
+    if (dir === 'up' && idx < backgroundImages.length - 1) { [backgroundImages[idx], backgroundImages[idx+1]] = [backgroundImages[idx+1], backgroundImages[idx]]; }
+    if (dir === 'down' && idx > 0) { [backgroundImages[idx], backgroundImages[idx-1]] = [backgroundImages[idx-1], backgroundImages[idx]]; }
+    if (dir === 'front') { const b = backgroundImages.splice(idx, 1)[0]; backgroundImages.push(b); }
+    if (dir === 'back') { const b = backgroundImages.splice(idx, 1)[0]; backgroundImages.unshift(b); }
+    renderBackgrounds();
+  }
+  function renderBackgrounds() {
+    const container = $('#bg-container');
+    if (!container) return;
+    container.innerHTML = '';
+    backgroundImages.forEach((img, i) => {
+      const item = document.createElement('div');
+      item.className = 'bg-item';
+      item.innerHTML = `
+        <img src="${img.dataUrl}" class="bg-thumb">
+        <span class="bg-name">${img.name}</span>
+        <div class="bg-controls">
+          <button class="bg-btn" data-action="back" title="Al fondo">⬇</button>
+          <button class="bg-btn" data-action="down" title="Bajar">↓</button>
+          <span class="bg-z">${i + 1}</span>
+          <button class="bg-btn" data-action="up" title="Subir">↑</button>
+          <button class="bg-btn" data-action="front" title="Al frente">⬆</button>
+          <button class="bg-btn danger" data-action="remove" title="Eliminar">✕</button>
+        </div>`;
+      item.querySelectorAll('.bg-btn').forEach(btn => {
+        btn.addEventListener('click', e => {
+          e.stopPropagation();
+          const action = btn.dataset.action;
+          if (action === 'remove') removeBackgroundImage(img.id);
+          else moveBackground(img.id, action);
+        });
+      });
+      container.appendChild(item);
+    });
+    // Render actual background images in preview
+    renderBgLayers();
+  }
+
+  function renderBgLayers() {
+    const area = $('#preview-area');
+    let bgLayer = $('#bg-layer');
+    if (!bgLayer) {
+      bgLayer = document.createElement('div');
+      bgLayer.id = 'bg-layer';
+      bgLayer.className = 'bg-layer';
+      area.insertBefore(bgLayer, area.firstChild);
+    }
+    bgLayer.innerHTML = '';
+    backgroundImages.forEach((img, i) => {
+      const el = document.createElement('img');
+      el.className = 'bg-image';
+      el.src = img.dataUrl;
+      el.style.zIndex = i;
+      bgLayer.appendChild(el);
+    });
+  }
+
+  // Reset state
+  let originalSvgString = null;
+
+  function resetAll() {
+    if (!originalSvgString) return;
+    if (!confirm('¿Resetear todo a su estado original?')) return;
+    elementAnimations = {};
+    elementGroups = {};
+    selectedElementIndex = null;
+    selectedGroupElements = [];
+    selectedGroupId = null;
+    isMultiSelectMode = false;
+    nextGroupId = 1;
+    undoStack = [];
+    undoIndex = -1;
+    updateUndoButtons();
+    loadSvgString(originalSvgString);
+  }
 
   // Slides state
   let slides = [];
@@ -190,6 +456,7 @@
   // Apply to all elements
   $('#apply-all-btn').addEventListener('click', () => {
     if (!lastPresetId) return;
+    pushHistory();
     const svg = $('#preview-area svg');
     if (!svg) return;
     const elements = svg.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, g, text');
@@ -197,7 +464,6 @@
     elements.forEach((el, i) => {
       if (!elementAnimations[i]) elementAnimations[i] = getDefaultElementConfig();
       elementAnimations[i].presetId = lastPresetId;
-      elementAnimations[i].speed = preset.duration;
 
       // Update group config if element belongs to a group
       const groupId = Object.keys(elementGroups).find(gid => elementGroups[gid].elements.includes(i));
@@ -230,10 +496,11 @@
   });
 
   function getDefaultElementConfig() {
-    return { presetId: null, speed: 1, delay: 0, iter: 'infinite', dir: 'normal', ovalRx: 80, ovalRy: 40, ovalAngle: 0, directionAngle: 0 };
+    return { presetId: null, speed: 16, delay: 0, iter: 'infinite', dir: 'normal', ovalRx: 80, ovalRy: 40, ovalAngle: 0, directionAngle: 0 };
   }
 
   function loadSvgString(svgStr) {
+    originalSvgString = svgStr;
     const parser = new DOMParser();
     const doc = parser.parseFromString(svgStr, 'image/svg+xml');
     const svg = doc.querySelector('svg');
@@ -246,20 +513,29 @@
     area.innerHTML = '';
     area.appendChild(document.importNode(svg, true));
 
+    setTimeout(updateBoundary, 50);
+
     $('#empty-state').style.display = 'none';
     area.style.display = 'flex';
     $('#presets-section').style.display = '';
     $('#controls-section').style.display = '';
     $('#export-section').style.display = '';
+    $('#history-section').style.display = '';
+    $('#bg-section').style.display = '';
     $('#mode-section').style.display = '';
     $('#slides-section').classList.add('visible');
     $('#elements-panel').classList.add('visible');
 
     exitPiecesMode();
+    zoomLevel = 1;
+    applyZoom();
+    setupZoom();
+    setupBoundary();
     elementAnimations = {};
     selectedElementIndex = null;
     elementGroups = {};
     selectedGroupElements = [];
+    selectedGroupId = null;
     nextGroupId = 1;
     renderElements();
   }
@@ -321,21 +597,32 @@
     // Group controls header
     const groupHeader = document.createElement('div');
     groupHeader.className = 'group-controls';
-    groupHeader.innerHTML = `
-      <button class="group-btn" id="toggle-multiselect" title="Seleccionar múltiples piezas">☰ Seleccionar</button>
-      <button class="group-btn" id="create-group-btn" title="Crear grupo con selección" style="display:none">Grupo +</button>
-      <button class="group-btn" id="clear-selection-btn" title="Limpiar selección" style="display:none">✕</button>
-    `;
+    const toggleBtn = document.createElement('button');
+    toggleBtn.className = 'group-btn';
+    toggleBtn.textContent = '☰ Seleccionar';
+    toggleBtn.title = 'Seleccionar múltiples piezas';
+    toggleBtn.addEventListener('click', toggleMultiSelectMode);
+    groupHeader.appendChild(toggleBtn);
+
+    const createBtn = document.createElement('button');
+    createBtn.className = 'group-btn';
+    createBtn.textContent = 'Grupo +';
+    createBtn.title = 'Crear grupo con selección';
+    createBtn.style.display = 'none';
+    createBtn.addEventListener('click', createGroupFromSelection);
+    groupHeader.appendChild(createBtn);
+
+    const clearBtn = document.createElement('button');
+    clearBtn.className = 'group-btn';
+    clearBtn.textContent = '✕';
+    clearBtn.title = 'Limpiar selección';
+    clearBtn.style.display = 'none';
+    clearBtn.addEventListener('click', clearGroupSelection);
+    groupHeader.appendChild(clearBtn);
+
     grid.appendChild(groupHeader);
 
-    setTimeout(() => {
-      const toggleBtn = $('#toggle-multiselect');
-      const createBtn = $('#create-group-btn');
-      const clearBtn = $('#clear-selection-btn');
-      if (toggleBtn) toggleBtn.addEventListener('click', toggleMultiSelectMode);
-      if (createBtn) createBtn.addEventListener('click', createGroupFromSelection);
-      if (clearBtn) clearBtn.addEventListener('click', clearGroupSelection);
-    }, 0);
+    const origElements = svg.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, g, text');
 
     elements.forEach((el, i) => {
       const tag = el.tagName.toLowerCase();
@@ -395,7 +682,7 @@
       visBtn.title = 'Mostrar/Ocultar';
       visBtn.addEventListener('click', e => {
         e.stopPropagation();
-        const original = $$(`#preview-area svg ${tag}`)[i];
+        const original = origElements[i];
         if (!original) return;
         const hidden = original.style.display === 'none';
         original.style.display = hidden ? '' : 'none';
@@ -424,11 +711,13 @@
         const groupItem = document.createElement('div');
         groupItem.className = 'group-item';
         groupItem.style.borderLeftColor = group.color || '#666';
+        groupItem.dataset.groupId = gid;
+        if (selectedGroupId === gid) groupItem.classList.add('active');
         groupItem.innerHTML = `
           <span class="group-item-name">${group.name} (${group.elements.length} piezas)</span>
           <button class="group-delete-btn" title="Eliminar grupo">✕</button>
         `;
-        groupItem.querySelector('.group-delete-btn').addEventListener('click', () => deleteGroup(gid));
+        groupItem.querySelector('.group-delete-btn').addEventListener('click', e => { e.stopPropagation(); deleteGroup(gid); });
         groupItem.addEventListener('click', () => selectGroup(gid));
         groupsSection.appendChild(groupItem);
       });
@@ -475,6 +764,7 @@
     if (selectedGroupElements.length < 2) return;
     const name = prompt('Nombre del grupo:', `Grupo ${nextGroupId}`);
     if (!name) return;
+    pushHistory();
 
     const color = groupColors[(nextGroupId - 1) % groupColors.length];
     const groupId = 'g' + nextGroupId++;
@@ -497,22 +787,30 @@
 
     selectedGroupElements = [];
     isMultiSelectMode = false;
+    selectedGroupId = groupId;
     renderElements();
 
     // Apply animations to group
     applyGroupAnimation(groupId);
+    selectGroup(groupId);
   }
 
   function deleteGroup(groupId) {
     const group = elementGroups[groupId];
     if (!group) return;
+    pushHistory();
     delete elementGroups[groupId];
+    if (selectedGroupId === groupId) selectedGroupId = null;
     renderElements();
   }
+
+  let selectedGroupId = null;
 
   function selectGroup(groupId) {
     const group = elementGroups[groupId];
     if (!group) return;
+
+    selectedGroupId = groupId;
 
     // Highlight all elements in the group
     const svg = $('#preview-area svg');
@@ -522,6 +820,23 @@
     group.elements.forEach(idx => {
       if (elements[idx]) elements[idx].classList.add('element-selected');
     });
+
+    // Show group config in controls
+    if (group.config && group.config.presetId) {
+      const preset = presets.find(p => p.id === group.config.presetId);
+      if (preset) {
+        $('#speed-slider').value = group.config.speed;
+        updateSpeedDisplay(group.elements[0]);
+        $('#delay-slider').value = group.config.delay;
+        updateDelayDisplay(group.elements[0]);
+        const translateBased = ['slide', 'bounce', 'shake', 'float', 'gravity', 'levitate'];
+        $('#direction-controls').style.display = translateBased.includes(group.config.presetId) ? '' : 'none';
+        $('#oval-controls').style.display = group.config.presetId === 'oval' ? '' : 'none';
+      }
+    }
+
+    // Mark group items in the panel
+    $$('.group-item').forEach(el => el.classList.toggle('active', el.dataset.groupId === groupId));
 
     // Select first element to show config
     if (group.elements.length > 0) {
@@ -567,26 +882,21 @@
   }
 
   function loadElementConfig(index) {
+    if (index === null || index === undefined) return;
     const cfg = elementAnimations[index];
     if (!cfg) return;
 
     const hasPreset = !!cfg.presetId;
     if (hasPreset) {
       $$('.preset-btn').forEach(b => b.classList.toggle('active', b.dataset.id === cfg.presetId));
-      const preset = presets.find(p => p.id === cfg.presetId);
-      if (preset) {
-        $('#speed-slider').value = preset.duration;
-        cfg.speed = preset.duration;
-        updateSpeedDisplay();
-      }
     } else {
       $$('.preset-btn').forEach(b => b.classList.remove('active'));
     }
 
     $('#speed-slider').value = cfg.speed;
-    updateSpeedDisplay();
+    updateSpeedDisplay(index);
     $('#delay-slider').value = cfg.delay;
-    updateDelayDisplay();
+    updateDelayDisplay(index);
 
     $$('#iter-group .toggle-btn').forEach(b => b.classList.toggle('active', b.dataset.val === cfg.iter));
     $$('#dir-group .toggle-btn').forEach(b => b.classList.toggle('active', b.dataset.val === cfg.dir));
@@ -601,8 +911,10 @@
       $('#oval-angle-val').textContent = cfg.ovalAngle + 'deg';
     }
 
-    $('#direction-controls').style.display = hasPreset ? '' : 'none';
-    if (hasPreset) {
+    const translateBased = ['slide', 'bounce', 'shake', 'float', 'gravity', 'levitate'];
+    const showDirection = hasPreset && translateBased.includes(cfg.presetId);
+    $('#direction-controls').style.display = showDirection ? '' : 'none';
+    if (showDirection) {
       $('#direction-slider').value = cfg.directionAngle;
       $('#direction-value').textContent = cfg.directionAngle + '°';
       updateDirectionArrow(cfg.directionAngle);
@@ -630,6 +942,7 @@
   function playAnimation() {
     if (selectedElementIndex === null && !Object.values(elementAnimations).some(c => c.presetId)) return;
     animationPlaying = true;
+    applyAllAnimations();
     setAllAnimationsPlayState('running');
     $('#play-btn').classList.add('active');
     $('#pause-btn').classList.remove('active');
@@ -653,13 +966,13 @@
     $('#play-btn').classList.remove('active');
     $('#pause-btn').classList.remove('active');
 
-    setTimeout(() => {
+    requestAnimationFrame(() => {
       applyAllAnimations();
       if (animationPlaying) {
         setAllAnimationsPlayState('running');
         $('#play-btn').classList.add('active');
       }
-    }, 50);
+    });
   }
 
   $('#play-btn').addEventListener('click', playAnimation);
@@ -721,6 +1034,15 @@
     });
   }
 
+  function getElementCenter(el) {
+    try {
+      const bbox = el.getBBox();
+      return { x: bbox.x + bbox.width / 2, y: bbox.y + bbox.height / 2 };
+    } catch (e) {
+      return { x: 100, y: 100 };
+    }
+  }
+
   function applyOneAnimation(index) {
     const svg = $('#preview-area svg');
     if (!svg) return;
@@ -735,11 +1057,12 @@
       return;
     }
 
-    el.style.transformOrigin = 'center center';
-    el.style.transformBox = 'fill-box';
+    const center = getElementCenter(el);
+    el.style.transformOrigin = `${center.x}px ${center.y}px`;
+    el.style.transformBox = 'view-box';
 
     const preset = presets.find(p => p.id === cfg.presetId);
-    const isTranslateBased = ['slide', 'bounce', 'shake', 'float', 'gravity'].includes(cfg.presetId);
+    const isTranslateBased = ['slide', 'bounce', 'shake', 'float', 'gravity', 'levitate'].includes(cfg.presetId);
     const hasAngle = cfg.directionAngle && cfg.directionAngle !== 0;
 
     let animName;
@@ -800,15 +1123,16 @@
       if (first) selectElement(parseInt(first.dataset.index));
       else return;
     }
+    pushHistory();
     const cfg = getConfigForSelected();
     if (!cfg) return;
-    cfg.presetId = id;
     const preset = presets.find(p => p.id === id);
-    $('#speed-slider').value = preset.duration;
-    cfg.speed = preset.duration;
-    updateSpeedDisplay();
+    cfg.presetId = id;
+    $('#speed-slider').value = cfg.speed;
+    updateSpeedDisplay(selectedElementIndex);
     $('#oval-controls').style.display = id === 'oval' ? '' : 'none';
-    $('#direction-controls').style.display = '';
+    const translateBased = ['slide', 'bounce', 'shake', 'float', 'gravity', 'levitate'];
+    $('#direction-controls').style.display = translateBased.includes(id) ? '' : 'none';
 
     // Check if element belongs to a group
     const groupId = Object.keys(elementGroups).find(gid => elementGroups[gid].elements.includes(selectedElementIndex));
@@ -826,66 +1150,100 @@
     renderElements();
   }
 
-  function updateSpeedDisplay() {
-    const cfg = getConfigForSelected();
+  function updateSpeedDisplay(index) {
+    const cfg = index !== undefined ? elementAnimations[index] : getConfigForSelected();
     if (cfg) $('#speed-value').textContent = cfg.speed.toFixed(1) + 's';
     else $('#speed-value').textContent = '1.0s';
   }
-  function updateDelayDisplay() {
-    const cfg = getConfigForSelected();
+  function updateDelayDisplay(index) {
+    const cfg = index !== undefined ? elementAnimations[index] : getConfigForSelected();
     if (cfg) $('#delay-value').textContent = cfg.delay.toFixed(1) + 's';
     else $('#delay-value').textContent = '0.0s';
   }
 
   // Controls
+  function syncGroupValue(index, key, value) {
+    const groupId = Object.keys(elementGroups).find(gid => elementGroups[gid].elements.includes(index));
+    if (!groupId) return;
+    const group = elementGroups[groupId];
+    group.config[key] = value;
+    group.elements.forEach(idx => {
+      if (elementAnimations[idx]) elementAnimations[idx][key] = value;
+    });
+  }
+
+  function saveSliderHistory() { pushHistory(); }
+
   $('#speed-slider').addEventListener('input', e => {
+    if (selectedElementIndex === null) return;
     const cfg = getConfigForSelected();
     if (!cfg) return;
     cfg.speed = parseFloat(e.target.value);
-    updateSpeedDisplay();
+    syncGroupValue(selectedElementIndex, 'speed', cfg.speed);
+    updateSpeedDisplay(selectedElementIndex);
     applyOneAnimation(selectedElementIndex);
+  });
+  $('#speed-slider').addEventListener('change', saveSliderHistory);
+  $('#speed-max').addEventListener('input', e => {
+    const val = parseFloat(e.target.value);
+    if (val > 0) {
+      $('#speed-slider').max = val;
+      if (parseFloat($('#speed-slider').value) > val) $('#speed-slider').value = val;
+    }
   });
 
   $('#delay-slider').addEventListener('input', e => {
+    if (selectedElementIndex === null) return;
     const cfg = getConfigForSelected();
     if (!cfg) return;
     cfg.delay = parseFloat(e.target.value);
-    updateDelayDisplay();
+    syncGroupValue(selectedElementIndex, 'delay', cfg.delay);
+    updateDelayDisplay(selectedElementIndex);
     applyOneAnimation(selectedElementIndex);
   });
+  $('#delay-slider').addEventListener('change', saveSliderHistory);
 
   $$('#iter-group .toggle-btn').forEach(btn => {
     btn.addEventListener('click', () => {
+      if (selectedElementIndex === null) return;
+      pushHistory();
       const cfg = getConfigForSelected();
       if (!cfg) return;
       $$('#iter-group .toggle-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       cfg.iter = btn.dataset.val;
+      syncGroupValue(selectedElementIndex, 'iter', cfg.iter);
       applyOneAnimation(selectedElementIndex);
     });
   });
 
   $$('#dir-group .toggle-btn').forEach(btn => {
     btn.addEventListener('click', () => {
+      if (selectedElementIndex === null) return;
+      pushHistory();
       const cfg = getConfigForSelected();
       if (!cfg) return;
       $$('#dir-group .toggle-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       cfg.dir = btn.dataset.val;
+      syncGroupValue(selectedElementIndex, 'dir', cfg.dir);
       applyOneAnimation(selectedElementIndex);
     });
   });
 
   // Direction angle slider
   $('#direction-slider').addEventListener('input', e => {
+    if (selectedElementIndex === null) return;
     const cfg = getConfigForSelected();
     if (!cfg) return;
     cfg.directionAngle = parseFloat(e.target.value);
+    syncGroupValue(selectedElementIndex, 'directionAngle', cfg.directionAngle);
     $('#direction-value').textContent = cfg.directionAngle + '°';
     updateDirectionArrow(cfg.directionAngle);
     applyOneAnimation(selectedElementIndex);
     renderElements();
   });
+  $('#direction-slider').addEventListener('change', saveSliderHistory);
 
   // Oval controls
   $('#oval-rx').addEventListener('input', e => {
@@ -895,6 +1253,7 @@
     $('#oval-rx-val').textContent = cfg.ovalRx + 'px';
     applyOneAnimation(selectedElementIndex);
   });
+  $('#oval-rx').addEventListener('change', saveSliderHistory);
   $('#oval-ry').addEventListener('input', e => {
     const cfg = getConfigForSelected();
     if (!cfg) return;
@@ -902,6 +1261,7 @@
     $('#oval-ry-val').textContent = cfg.ovalRy + 'px';
     applyOneAnimation(selectedElementIndex);
   });
+  $('#oval-ry').addEventListener('change', saveSliderHistory);
   $('#oval-angle').addEventListener('input', e => {
     const cfg = getConfigForSelected();
     if (!cfg) return;
@@ -909,6 +1269,7 @@
     $('#oval-angle-val').textContent = cfg.ovalAngle + 'deg';
     applyOneAnimation(selectedElementIndex);
   });
+  $('#oval-angle').addEventListener('change', saveSliderHistory);
 
   // Pieces mode
   $('#mode-toggle').addEventListener('click', () => {
@@ -924,8 +1285,8 @@
     const area = $('#preview-area');
     area.classList.add('mode-select');
     const svg = area.querySelector('svg');
-    if (svg) setAllAnimationsPlayState('paused');
     if (!svg) return;
+    setAllAnimationsPlayState('paused');
     svg.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, text, g').forEach(el => {
       el.addEventListener('pointerdown', onElementPointerDown);
     });
@@ -939,14 +1300,23 @@
     const area = $('#preview-area');
     area.classList.remove('mode-select');
     const svg = area.querySelector('svg');
-    if (svg) setAllAnimationsPlayState(animationPlaying ? 'running' : 'paused');
-    if (!svg) return;
+    if (!svg) { selectedElement = null; return; }
+    setAllAnimationsPlayState(animationPlaying ? 'running' : 'paused');
     svg.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, text, g').forEach(el => {
       el.removeEventListener('pointerdown', onElementPointerDown);
       el.classList.remove('element-selected');
       el.style.removeProperty('transform');
     });
     selectedElement = null;
+  }
+
+  function getSvgViewBox(svgEl) {
+    const vb = svgEl.getAttribute('viewBox');
+    if (vb) {
+      const parts = vb.trim().split(/\s+/).map(Number);
+      if (parts.length >= 4 && parts[2] > 0 && parts[3] > 0) return { w: parts[2], h: parts[3] };
+    }
+    return { w: 200, h: 200 };
   }
 
   function onElementPointerDown(e) {
@@ -956,7 +1326,8 @@
     selectedElement = e.currentTarget;
     selectedElement.classList.add('element-selected');
     const svgEl = $('#preview-area svg');
-    dragState = { element: selectedElement, startClientX: e.clientX, startClientY: e.clientY, svgRect: svgEl.getBoundingClientRect() };
+    const vb = getSvgViewBox(svgEl);
+    dragState = { element: selectedElement, startClientX: e.clientX, startClientY: e.clientY, svgRect: svgEl.getBoundingClientRect(), vbW: vb.w, vbH: vb.h };
     document.addEventListener('pointermove', onElementPointerMove);
     document.addEventListener('pointerup', onElementPointerUp);
   }
@@ -967,7 +1338,7 @@
     const dx = e.clientX - dragState.startClientX;
     const dy = e.clientY - dragState.startClientY;
     const svgRect = dragState.svgRect;
-    dragState.element.style.transform = `translate(${dx * 200 / svgRect.width}px, ${dy * 200 / svgRect.height}px)`;
+    dragState.element.style.transform = `translate(${dx * dragState.vbW / svgRect.width}px, ${dy * dragState.vbH / svgRect.height}px)`;
   }
 
   function onElementPointerUp() {
@@ -994,9 +1365,7 @@
     clone.removeAttribute('class');
     clone.querySelectorAll('style#dir-keyframes').forEach(s => s.remove());
 
-    const usedPresets = new Set();
     const elements = clone.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, g, text');
-    const origElements = svg.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, g, text');
 
     let embeddedStyle = '';
     let elementStyles = '';
@@ -1004,12 +1373,9 @@
     elements.forEach((el, i) => {
       const cfg = elementAnimations[i];
       if (!cfg || !cfg.presetId) return;
-      usedPresets.add(cfg.presetId);
       const preset = presets.find(p => p.id === cfg.presetId);
-      const origEl = origElements[i];
-      const tag = origEl ? origEl.tagName.toLowerCase() : el.tagName.toLowerCase();
 
-      const isTranslateBased = ['slide', 'bounce', 'shake', 'float', 'gravity'].includes(cfg.presetId);
+      const isTranslateBased = ['slide', 'bounce', 'shake', 'float', 'gravity', 'levitate'].includes(cfg.presetId);
       const hasAngle = cfg.directionAngle && cfg.directionAngle !== 0;
 
       let animName;
@@ -1033,33 +1399,50 @@
           case 'float':
             kf = `@keyframes ${dirName} { 0%,100% { transform: translate(0,0); } 50% { transform: translate(${15*cos}px,${15*sin}px); } }`;
             break;
+          case 'levitate':
+            kf = `@keyframes ${dirName} { 0%,100% { transform: translate(0,0); } 25% { transform: translate(${-12*cos}px,${-12*sin}px); } 50% { transform: translate(${-25*cos}px,${-25*sin}px); } 75% { transform: translate(${-12*cos}px,${-12*sin}px); } }`;
+            break;
           case 'gravity':
             kf = `@keyframes ${dirName} { 0% { transform: translate(${-100*cos}px,${-100*sin}px); } 30% { transform: translate(${80*cos}px,${80*sin}px); } 50% { transform: translate(${-40*cos}px,${-40*sin}px); } 70% { transform: translate(${30*cos}px,${30*sin}px); } 85% { transform: translate(${-10*cos}px,${-10*sin}px); } 100% { transform: translate(0,0); } }`;
             break;
         }
-        embeddedStyle += kf + '\n';
+        if (!embeddedStyle.includes(dirName)) embeddedStyle += kf + '\n';
       } else {
         switch (cfg.presetId) {
-          case 'rotate': animName = 'svgRotate'; embeddedStyle += `@keyframes svgRotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }\n`; break;
-          case 'wheel': animName = 'svgWheel'; embeddedStyle += `@keyframes svgWheel { 0% { transform: rotate(0deg); } 25% { transform: rotate(90deg); } 50% { transform: rotate(180deg); } 75% { transform: rotate(270deg); } 100% { transform: rotate(360deg); } }\n`; break;
-          case 'pulse': animName = 'svgPulse'; embeddedStyle += `@keyframes svgPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.15); } }\n`; break;
-          case 'bounce': animName = 'svgBounce'; embeddedStyle += `@keyframes svgBounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }\n`; break;
-          case 'gravity': animName = 'svgGravity'; embeddedStyle += `@keyframes svgGravity { 0% { transform: translateY(-100px); } 30% { transform: translateY(80px); } 50% { transform: translateY(-40px); } 70% { transform: translateY(30px); } 85% { transform: translateY(-10px); } 100% { transform: translateY(0); } }\n`; break;
-          case 'slide': animName = 'svgSlide'; embeddedStyle += `@keyframes svgSlide { 0%,100% { transform: translateX(-80px); } 50% { transform: translateX(80px); } }\n`; break;
-          case 'oval': animName = 'svgOval'; embeddedStyle += `@keyframes svgOval { 0% { transform: translate(0,0); } 25% { transform: translate(var(--oval-rx,80px),0); } 50% { transform: translate(0,var(--oval-ry,40px)); } 75% { transform: translate(calc(-1*var(--oval-rx,80px)),0); } 100% { transform: translate(0,0); } }\n`; break;
-          case 'fade': animName = 'svgFade'; embeddedStyle += `@keyframes svgFade { 0%,100% { opacity: 1; } 50% { opacity: 0.15; } }\n`; break;
-          case 'draw': animName = 'svgDraw'; embeddedStyle += `@keyframes svgDraw { from { stroke-dashoffset: var(--path-length,1000); } to { stroke-dashoffset: 0; } }\n`; break;
-          case 'shake': animName = 'svgShake'; embeddedStyle += `@keyframes svgShake { 0%,100% { transform: translateX(0); } 10%,30%,50%,70%,90% { transform: translateX(-8px); } 20%,40%,60%,80% { transform: translateX(8px); } }\n`; break;
-          case 'float': animName = 'svgFloat'; embeddedStyle += `@keyframes svgFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-15px); } }\n`; break;
-          case 'spin': animName = 'svgSpin'; embeddedStyle += `@keyframes svgSpin { 0% { transform: rotate(0deg) scale(1); } 50% { transform: rotate(180deg) scale(0.85); } 100% { transform: rotate(360deg) scale(1); } }\n`; break;
-          case 'glow': animName = 'svgGlow'; embeddedStyle += `@keyframes svgGlow { 0%,100% { filter: drop-shadow(0 0 4px rgba(108,92,231,0.3)); } 50% { filter: drop-shadow(0 0 24px rgba(108,92,231,0.9)); } }\n`; break;
+          case 'rotate': animName = 'svgRotate'; if (!embeddedStyle.includes('svgRotate')) { embeddedStyle += `@keyframes svgRotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }\n`; } break;
+          case 'wheel': animName = 'svgWheel'; if (!embeddedStyle.includes('svgWheel')) { embeddedStyle += `@keyframes svgWheel { 0% { transform: rotate(0deg); } 25% { transform: rotate(90deg); } 50% { transform: rotate(180deg); } 75% { transform: rotate(270deg); } 100% { transform: rotate(360deg); } }\n`; } break;
+          case 'pulse': animName = 'svgPulse'; if (!embeddedStyle.includes('svgPulse')) { embeddedStyle += `@keyframes svgPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.15); } }\n`; } break;
+          case 'bounce': animName = 'svgBounce'; if (!embeddedStyle.includes('svgBounce')) { embeddedStyle += `@keyframes svgBounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }\n`; } break;
+          case 'gravity': animName = 'svgGravity'; if (!embeddedStyle.includes('svgGravity')) { embeddedStyle += `@keyframes svgGravity { 0% { transform: translateY(-100px); } 30% { transform: translateY(80px); } 50% { transform: translateY(-40px); } 70% { transform: translateY(30px); } 85% { transform: translateY(-10px); } 100% { transform: translateY(0); } }\n`; } break;
+          case 'slide': animName = 'svgSlide'; if (!embeddedStyle.includes('svgSlide')) { embeddedStyle += `@keyframes svgSlide { 0%,100% { transform: translateX(-80px); } 50% { transform: translateX(80px); } }\n`; } break;
+          case 'oval': animName = 'svgOval'; if (!embeddedStyle.includes('svgOval')) { embeddedStyle += `@keyframes svgOval { 0% { transform: translate(0,0); } 25% { transform: translate(var(--oval-rx,80px),0); } 50% { transform: translate(0,var(--oval-ry,40px)); } 75% { transform: translate(calc(-1*var(--oval-rx,80px)),0); } 100% { transform: translate(0,0); } }\n`; } break;
+          case 'fade': animName = 'svgFade'; if (!embeddedStyle.includes('svgFade')) { embeddedStyle += `@keyframes svgFade { 0%,100% { opacity: 1; } 50% { opacity: 0.15; } }\n`; } break;
+          case 'draw': animName = 'svgDraw'; if (!embeddedStyle.includes('svgDraw')) { embeddedStyle += `@keyframes svgDraw { from { stroke-dashoffset: var(--path-length,1000); } to { stroke-dashoffset: 0; } }\n`; } break;
+          case 'shake': animName = 'svgShake'; if (!embeddedStyle.includes('svgShake')) { embeddedStyle += `@keyframes svgShake { 0%,100% { transform: translateX(0); } 10%,30%,50%,70%,90% { transform: translateX(-8px); } 20%,40%,60%,80% { transform: translateX(8px); } }\n`; } break;
+          case 'float': animName = 'svgFloat'; if (!embeddedStyle.includes('svgFloat')) { embeddedStyle += `@keyframes svgFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-15px); } }\n`; } break;
+          case 'levitate': animName = 'svgLevitate'; if (!embeddedStyle.includes('svgLevitate')) { embeddedStyle += `@keyframes svgLevitate { 0%,100% { transform: translateY(0) scale(1); } 25% { transform: translateY(-12px) scale(1.02); } 50% { transform: translateY(-25px) scale(0.98); } 75% { transform: translateY(-12px) scale(1.01); } }\n`; } break;
+          case 'spin': animName = 'svgSpin'; if (!embeddedStyle.includes('svgSpin')) { embeddedStyle += `@keyframes svgSpin { 0% { transform: rotate(0deg) scale(1); } 50% { transform: rotate(180deg) scale(0.85); } 100% { transform: rotate(360deg) scale(1); } }\n`; } break;
+          case 'glow': animName = 'svgGlow'; if (!embeddedStyle.includes('svgGlow')) { embeddedStyle += `@keyframes svgGlow { 0%,100% { filter: drop-shadow(0 0 4px rgba(108,92,231,0.3)); } 50% { filter: drop-shadow(0 0 24px rgba(108,92,231,0.9)); } }\n`; } break;
         }
+      }
+
+      el.setAttribute('data-anim-index', i);
+
+      // Use absolute center in SVG coords for stable rotation pivot
+      let originCx = 100, originCy = 100;
+      const origEl = svg.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, g, text')[i];
+      if (origEl) {
+        try {
+          const bbox = origEl.getBBox();
+          originCx = bbox.x + bbox.width / 2;
+          originCy = bbox.y + bbox.height / 2;
+        } catch (e) {}
       }
 
       const easing = preset ? preset.easing : 'ease-in-out';
       const ovalVars = cfg.presetId === 'oval' ? `--oval-rx: ${cfg.ovalRx}px; --oval-ry: ${cfg.ovalRy}px;` : '';
       const drawExtra = cfg.presetId === 'draw' ? ' stroke-dasharray: 1000; --path-length: 1000;' : '';
-      elementStyles += `${tag}:nth-child(${i + 1}) { transform-origin: center center; transform-box: fill-box; ${ovalVars} animation: ${animName} ${cfg.speed}s ${easing} ${cfg.iter} ${cfg.dir}; animation-delay: ${cfg.delay}s;${drawExtra} }\n`;
+      elementStyles += `[data-anim-index="${i}"] { transform-origin: ${originCx}px ${originCy}px; transform-box: view-box; ${ovalVars} animation: ${animName} ${cfg.speed}s ${easing} ${cfg.iter} ${cfg.dir}; animation-delay: ${cfg.delay}s;${drawExtra} }\n`;
     });
 
     const styleEl = document.createElementNS('http://www.w3.org/2000/svg', 'style');
@@ -1189,7 +1572,35 @@
   setupTransitionGroup('transition-group2');
 
   $('#slide-duration').addEventListener('input', e => { slideDuration = parseFloat(e.target.value); $('#slide-duration-val').textContent = slideDuration.toFixed(1) + 's'; if (isSlidePlaying) { stopSlideShow(); startSlideShow(); } });
-  $('#transition-speed').addEventListener('input', e => { transitionSpeed = parseFloat(e.target.value); $('#transition-speed-val').textContent = transitionSpeed.toFixed(1) + 's'; });
+  $('#transition-speed').addEventListener('input', e => {
+    transitionSpeed = parseFloat(e.target.value);
+    $('#transition-speed-val').textContent = transitionSpeed.toFixed(1) + 's';
+    const preview = $('#preview-area');
+    if (preview) preview.style.setProperty('--transition-speed', transitionSpeed + 's');
+  });
+
+  // Undo/Redo/Reset button handlers
+  $('#undo-btn').addEventListener('click', undo);
+  $('#redo-btn').addEventListener('click', redo);
+  $('#reset-btn').addEventListener('click', resetAll);
+
+  // Boundary toggle
+  $('#boundary-toggle').addEventListener('click', toggleBoundary);
+
+  // Background image upload
+  $('#bg-upload-btn').addEventListener('click', () => $('#bg-file-input').click());
+  $('#bg-file-input').addEventListener('change', e => {
+    if (e.target.files.length) { addBackgroundImage(e.target.files[0]); e.target.value = ''; }
+  });
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT') return;
+    if (e.ctrlKey && e.key === 'z' && e.shiftKey) { e.preventDefault(); redo(); }
+    else if (e.ctrlKey && e.key === 'Z' && e.shiftKey) { e.preventDefault(); redo(); }
+    else if (e.ctrlKey && e.key === 'z') { e.preventDefault(); undo(); }
+    else if (e.ctrlKey && e.key === 'Z') { e.preventDefault(); undo(); }
+  });
 
   // Keyboard shortcut for play/pause
   document.addEventListener('keydown', e => {

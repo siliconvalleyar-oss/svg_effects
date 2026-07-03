@@ -21,26 +21,12 @@
 - **Reversa**: De fin a principio
 - **Alterno**: Alterna entre normal y reversa
 
-## Controles de eje de referencia
+## Sentido / Angulo (animaciones de translacion)
 
-### Eje X (Horizontal)
-- Rango: 0% a 100%
-- Default: 50% (centro)
-- 0% = borde izquierdo del SVG
-- 100% = borde derecho del SVG
-
-### Eje Y (Vertical)
-- Rango: 0% a 100%
-- Default: 50% (centro)
-- 0% = borde superior del SVG
-- 100% = borde inferior del SVG
-
-## Controles de amplitud
-
-### Intensidad
-- Rango: 10% a 200%
-- Amplifica o reduce la magnitud del efecto
-- Afecta: distancia de rebote, shake, slide, etc.
+- Rango: 0-360 grados
+- Botones de direccion rapida: 8 direcciones cardinales
+- Afecta: slide, bounce, shake, float, gravity
+- Incluye flecha de trayectoria superpuesta en preview
 
 ## Controles especificos por animacion
 
@@ -48,10 +34,6 @@
 - **Ancho (X)**: 10-150px - radio horizontal
 - **Alto (Y)**: 10-150px - radio vertical
 - **Angulo**: 0-360grados - rotacion de la trayectoria
-
-### Color (Brillar)
-- **Matiz**: Color del brillo (0-360grados)
-- **Saturacion**: Intensidad del color (0-100%)
 
 ## Controles de reproduccion
 

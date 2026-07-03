@@ -12,6 +12,8 @@ Aplicación web para animar archivos SVG con efectos predefinidos y controles av
 ## Características
 
 - **13 animaciones preset**: Rotar, Rueda, Pulsar, Rebotar, Gravedad, Deslizar, Óvalo, Desvanecer, Dibujar, Temblar, Flotar, Girar, Brillar
+- **Animaciones independientes por pieza**: Cada elemento del SVG puede tener su propio efecto
+- **Sentido / Ángulo**: Control de dirección con previsualización de trayectoria para animaciones de translación
 - **Controles avanzados**: Velocidad, retraso, repetición, dirección
 - **Modo piezas**: Seleccionar y mover elementos individuales del SVG
 - **Generador de formas**: 12 formas predefinidas para generar SVGs
