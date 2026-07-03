@@ -589,6 +589,8 @@
 
   function renderElements() {
     const grid = $('#element-grid');
+    const scrollContainer = $('#elements-panel');
+    const savedScrollTop = scrollContainer ? scrollContainer.scrollTop : 0;
     grid.innerHTML = '';
     const svg = $('#preview-area svg');
     if (!svg) { grid.innerHTML = '<div class="file-empty">Sin elementos</div>'; return; }
@@ -697,8 +699,15 @@
       });
       item.appendChild(visBtn);
 
-      item.addEventListener('click', () => {
-        toggleElementSelection(i);
+      item.addEventListener('click', e => {
+        // Toggle selection: click same element deselects
+        if (selectedElementIndex === i) {
+          selectedElementIndex = null;
+          $$('.element-thumb').forEach(t => t.classList.remove('selected'));
+          svg.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, g, text').forEach(el => el.classList.remove('element-selected'));
+          return;
+        }
+        selectedElementIndex = i;
         selectElement(i);
       });
       item.addEventListener('contextmenu', e => {
@@ -730,6 +739,8 @@
       });
       grid.appendChild(groupsSection);
     }
+    // Restore scroll position
+    requestAnimationFrame(() => { if (scrollContainer) scrollContainer.scrollTop = savedScrollTop; });
   }
 
   // ===== GROUP MANAGEMENT =====
@@ -1479,9 +1490,8 @@
     if (e.ctrlKey || e.metaKey) {
       const i = getElementIndex(el);
       if (i !== -1) toggleElementSelection(i);
-      return;
     }
-    if (selectedElement) selectedElement.classList.remove('element-selected');
+    if (selectedElement && selectedElement !== el) selectedElement.classList.remove('element-selected');
     selectedElement = el;
     selectedElement.classList.add('element-selected');
     const svgEl = $('#preview-area svg');
