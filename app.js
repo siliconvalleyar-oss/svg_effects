@@ -717,6 +717,11 @@
           selectElement(i);
         }
       });
+      item.addEventListener('contextmenu', e => {
+        e.preventDefault();
+        const targets = isMultiSelectMode && selectedGroupElements.length >= 2 ? selectedGroupElements : [i];
+        showContextMenu(e, targets);
+      });
 
       grid.appendChild(item);
     });
@@ -767,20 +772,33 @@
     } else {
       selectedGroupElements.splice(idx, 1);
     }
+    updateSvgElementSelection();
     const createBtn = $('#create-group-btn');
     if (createBtn) createBtn.style.display = selectedGroupElements.length >= 2 ? '' : 'none';
     renderElements();
   }
 
+  function updateSvgElementSelection() {
+    const svg = $('#preview-area svg');
+    if (!svg) return;
+    const elements = svg.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, g, text');
+    elements.forEach((el, i) => {
+      el.classList.toggle('element-selected', selectedGroupElements.includes(i));
+    });
+  }
+
   function clearGroupSelection() {
     selectedGroupElements = [];
+    const svg = $('#preview-area svg');
+    if (svg) svg.querySelectorAll('.element-selected').forEach(el => el.classList.remove('element-selected'));
     const createBtn = $('#create-group-btn');
     if (createBtn) createBtn.style.display = 'none';
     renderElements();
   }
 
-  function createGroupFromSelection() {
-    if (selectedGroupElements.length < 2) return;
+  function createGroupFromSelection(indices) {
+    const items = indices || selectedGroupElements;
+    if (items.length < 2) return;
     const name = prompt('Nombre del grupo:', `Grupo ${nextGroupId}`);
     if (!name) return;
     pushHistory();
@@ -789,18 +807,18 @@
     const groupId = 'g' + nextGroupId++;
 
     // Get config from first selected element as template
-    const firstIdx = selectedGroupElements[0];
+    const firstIdx = items[0];
     const templateConfig = elementAnimations[firstIdx] ? { ...elementAnimations[firstIdx] } : getDefaultElementConfig();
 
     elementGroups[groupId] = {
       name: name,
       color: color,
-      elements: [...selectedGroupElements],
+      elements: [...items],
       config: templateConfig
     };
 
     // Apply same animation config to all elements in group
-    selectedGroupElements.forEach(idx => {
+    items.forEach(idx => {
       elementAnimations[idx] = { ...templateConfig };
     });
 
@@ -1377,6 +1395,7 @@
     bakeAnimations();
     svg.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, text, g').forEach(el => {
       el.addEventListener('pointerdown', onElementPointerDown);
+      el.addEventListener('contextmenu', onElementContextMenu);
     });
   }
 
@@ -1391,6 +1410,7 @@
     if (!svg) { selectedElement = null; return; }
     svg.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, text, g').forEach(el => {
       el.removeEventListener('pointerdown', onElementPointerDown);
+      el.removeEventListener('contextmenu', onElementContextMenu);
       el.classList.remove('element-selected');
       el.style.removeProperty('transform');
     });
@@ -1411,8 +1431,14 @@
   function onElementPointerDown(e) {
     e.stopPropagation();
     e.preventDefault();
+    const el = e.currentTarget;
+    if (e.ctrlKey || e.metaKey) {
+      const i = getElementIndex(el);
+      if (i !== -1) toggleElementSelection(i);
+      return;
+    }
     if (selectedElement) selectedElement.classList.remove('element-selected');
-    selectedElement = e.currentTarget;
+    selectedElement = el;
     selectedElement.classList.add('element-selected');
     const svgEl = $('#preview-area svg');
     const vb = getSvgViewBox(svgEl);
@@ -1437,11 +1463,148 @@
     dragState = null;
   }
 
+  function getElementIndex(el) {
+    const svg = $('#preview-area svg');
+    if (!svg) return -1;
+    const elements = svg.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, g, text');
+    for (let i = 0; i < elements.length; i++) {
+      if (elements[i] === el) return i;
+    }
+    return -1;
+  }
+
+  // ===== CONTEXT MENU =====
+
+  let contextMenuTargets = [];
+
+  function showContextMenu(e, indices) {
+    e.preventDefault();
+    e.stopPropagation();
+    hideContextMenu();
+    contextMenuTargets = indices;
+    const menu = $('#context-menu');
+    if (!menu) return;
+
+    menu.innerHTML = '';
+
+    // Check if any selected element belongs to a group
+    const belongsToGroup = indices.some(i => Object.keys(elementGroups).find(gid => elementGroups[gid].elements.includes(i)));
+
+    if (indices.length >= 2) {
+      addMenuItem(menu, 'Agrupar', () => { createGroupFromSelection(contextMenuTargets); hideContextMenu(); });
+    }
+    if (belongsToGroup) {
+      addMenuItem(menu, 'Desagrupar', () => {
+        contextMenuTargets.forEach(i => {
+          Object.keys(elementGroups).forEach(gid => {
+            const g = elementGroups[gid];
+            const pos = g.elements.indexOf(i);
+            if (pos !== -1) {
+              g.elements.splice(pos, 1);
+              if (g.elements.length < 2) delete elementGroups[gid];
+            }
+          });
+        });
+        hideContextMenu();
+        renderElements();
+      });
+    }
+    addMenuItem(menu, 'Ocultar', () => { toggleVisibility(contextMenuTargets); hideContextMenu(); });
+    addMenuItem(menu, 'Eliminar', () => { contextMenuTargets.forEach(i => removeElement(i)); hideContextMenu(); renderElements(); });
+
+    menu.style.display = 'block';
+    const rect = menu.getBoundingClientRect();
+    let x = e.clientX, y = e.clientY;
+    if (x + rect.width > window.innerWidth) x = window.innerWidth - rect.width - 10;
+    if (y + rect.height > window.innerHeight) y = window.innerHeight - rect.height - 10;
+    menu.style.left = x + 'px';
+    menu.style.top = y + 'px';
+  }
+
+  function addMenuItem(menu, label, fn) {
+    const btn = document.createElement('button');
+    btn.textContent = label;
+    btn.addEventListener('click', fn);
+    menu.appendChild(btn);
+  }
+
+  function hideContextMenu() {
+    const menu = $('#context-menu');
+    if (menu) menu.style.display = 'none';
+    contextMenuTargets = [];
+  }
+
+  function removeElement(index) {
+    const svg = $('#preview-area svg');
+    if (!svg) return;
+    const elements = svg.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, g, text');
+    const el = elements[index];
+    if (el) {
+      el.remove();
+      delete elementAnimations[index];
+      // Remove element from any groups
+      Object.keys(elementGroups).forEach(gid => {
+        const g = elementGroups[gid];
+        const pos = g.elements.indexOf(index);
+        if (pos !== -1) g.elements.splice(pos, 1);
+        if (g.elements.length < 2) delete elementGroups[gid];
+      });
+    }
+    renderElements();
+    applyAllAnimations();
+  }
+
+  function toggleVisibility(indices) {
+    const svg = $('#preview-area svg');
+    if (!svg) return;
+    const elements = svg.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, g, text');
+    indices.forEach(i => {
+      const el = elements[i];
+      if (!el) return;
+      el.style.display = el.style.display === 'none' ? '' : 'none';
+    });
+  }
+
+  function onElementContextMenu(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const el = e.currentTarget;
+    const idx = getElementIndex(el);
+    if (idx === -1) return;
+    if (e.ctrlKey || e.metaKey) {
+      if (!selectedGroupElements.includes(idx)) toggleElementSelection(idx);
+      showContextMenu(e, [...selectedGroupElements]);
+      return;
+    }
+    // If clicked element is in current selection, act on all selected
+    if (selectedGroupElements.includes(idx) && selectedGroupElements.length >= 2) {
+      showContextMenu(e, [...selectedGroupElements]);
+    } else {
+      // Otherwise act only on the clicked element
+      selectedGroupElements = [idx];
+      updateSvgElementSelection();
+      renderElements();
+      showContextMenu(e, [idx]);
+    }
+  }
+
+  // Close context menu on click outside
+  document.addEventListener('click', e => {
+    if (!e.target.closest('#context-menu')) hideContextMenu();
+  });
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && isPiecesMode && selectedElement) {
-      selectedElement.classList.remove('element-selected');
-      selectedElement.style.removeProperty('transform');
-      selectedElement = null;
+    if (e.key === 'Escape') hideContextMenu();
+  });
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && isPiecesMode) {
+      if (selectedGroupElements.length) {
+        clearGroupSelection();
+      } else if (selectedElement) {
+        selectedElement.classList.remove('element-selected');
+        selectedElement.style.removeProperty('transform');
+        selectedElement = null;
+      }
     }
   });
 
