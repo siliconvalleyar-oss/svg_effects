@@ -1143,13 +1143,14 @@
     el.style.animationDelay = cfg.delay + 's';
     el.style.animationPlayState = animationPlaying ? 'running' : 'paused';
 
-    // Set CSS vars for configurable presets
-    if (cfg.presetId === 'oval') {
+    // Set CSS vars for configurable presets (check all active presets)
+    const hasArc = activeIds.some(isArcPreset);
+    const hasOval = activeIds.includes('oval');
+    if (hasOval) {
       el.style.setProperty('--oval-rx', cfg.ovalRx + 'px');
       el.style.setProperty('--oval-ry', cfg.ovalRy + 'px');
     }
-
-    if (isArcPreset(cfg.presetId)) {
+    if (hasArc) {
       el.style.setProperty('--arc-rx', cfg.arcRx + 'px');
       el.style.setProperty('--arc-ry', cfg.arcRy + 'px');
       const pivotCx = cfg.pivotX !== null ? cfg.pivotX : center.x;
@@ -1535,7 +1536,8 @@
     if (!marker) return;
     const el = getElementByIndex(index);
     const cfg = elementAnimations[index];
-    if (!el || !cfg || !isArcPreset(cfg.presetId) || !isPiecesMode) {
+    const activeIds = getAllActivePresets(cfg);
+    if (!el || !cfg || !activeIds.some(isArcPreset) || !isPiecesMode) {
       marker.style.display = 'none';
       return;
     }
@@ -1572,6 +1574,21 @@
     document.addEventListener('pointerup', onPivotPointerUp);
   });
 
+  function syncGroupPivot(index, pivotX, pivotY) {
+    const groupId = Object.keys(elementGroups).find(gid => elementGroups[gid].elements.includes(index));
+    if (!groupId) return;
+    const group = elementGroups[groupId];
+    group.config.pivotX = pivotX;
+    group.config.pivotY = pivotY;
+    group.elements.forEach(idx => {
+      if (elementAnimations[idx]) {
+        elementAnimations[idx].pivotX = pivotX;
+        elementAnimations[idx].pivotY = pivotY;
+        applyOneAnimation(idx);
+      }
+    });
+  }
+
   function onPivotPointerMove(e) {
     if (!pivotDragState) return;
     e.preventDefault();
@@ -1582,10 +1599,13 @@
     const el = getElementByIndex(ds.index);
     if (!cfg || !el) return;
     const center = getElementCenter(el);
-    cfg.pivotX = (cfg.pivotX !== null ? cfg.pivotX : center.x) + dx;
-    cfg.pivotY = (cfg.pivotY !== null ? cfg.pivotY : center.y) + dy;
+    const newPivotX = (cfg.pivotX !== null ? cfg.pivotX : center.x) + dx;
+    const newPivotY = (cfg.pivotY !== null ? cfg.pivotY : center.y) + dy;
+    cfg.pivotX = newPivotX;
+    cfg.pivotY = newPivotY;
     pivotDragState.lastX = e.clientX;
     pivotDragState.lastY = e.clientY;
+    syncGroupPivot(ds.index, newPivotX, newPivotY);
     applyOneAnimation(ds.index);
     updatePivotMarker(ds.index);
   }
