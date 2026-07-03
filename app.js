@@ -666,19 +666,6 @@
       if (group) item.classList.add('grouped');
       item.dataset.index = i;
 
-      // Checkbox for multi-select
-      if (isMultiSelectMode) {
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.className = 'el-checkbox';
-        checkbox.checked = selectedGroupElements.includes(i);
-        checkbox.addEventListener('click', e => {
-          e.stopPropagation();
-          toggleElementSelection(i);
-        });
-        item.appendChild(checkbox);
-      }
-
       const dot = document.createElement('span');
       dot.className = 'el-preset-dot';
       dot.style.background = preset ? preset.color : (group ? '#fff' : 'transparent');
@@ -719,8 +706,11 @@
       });
       item.addEventListener('contextmenu', e => {
         e.preventDefault();
-        const targets = isMultiSelectMode && selectedGroupElements.length >= 2 ? selectedGroupElements : [i];
-        showContextMenu(e, targets);
+        if (isMultiSelectMode && selectedGroupElements.length >= 1) {
+          showContextMenu(e, [...selectedGroupElements]);
+        } else {
+          showContextMenu(e, [i]);
+        }
       });
 
       grid.appendChild(item);
@@ -755,13 +745,24 @@
 
   function toggleMultiSelectMode() {
     isMultiSelectMode = !isMultiSelectMode;
-    selectedGroupElements = [];
     const toggleBtn = $('#toggle-multiselect');
     const createBtn = $('#create-group-btn');
     const clearBtn = $('#clear-selection-btn');
     if (toggleBtn) toggleBtn.classList.toggle('active', isMultiSelectMode);
-    if (createBtn) createBtn.style.display = isMultiSelectMode ? '' : 'none';
-    if (clearBtn) clearBtn.style.display = isMultiSelectMode ? '' : 'none';
+    if (isMultiSelectMode) {
+      const svg = $('#preview-area svg');
+      if (svg) {
+        const elements = svg.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, g, text');
+        selectedGroupElements = Array.from(elements).map((_, i) => i);
+      }
+      if (createBtn) createBtn.style.display = selectedGroupElements.length >= 2 ? '' : 'none';
+      if (clearBtn) clearBtn.style.display = '';
+    } else {
+      selectedGroupElements = [];
+      if (createBtn) createBtn.style.display = 'none';
+      if (clearBtn) clearBtn.style.display = 'none';
+    }
+    updateSvgElementSelection();
     renderElements();
   }
 
@@ -775,6 +776,14 @@
     updateSvgElementSelection();
     const createBtn = $('#create-group-btn');
     if (createBtn) createBtn.style.display = selectedGroupElements.length >= 2 ? '' : 'none';
+    if (selectedGroupElements.length === 0 && isMultiSelectMode) {
+      isMultiSelectMode = false;
+      const toggleBtn = $('#toggle-multiselect');
+      if (toggleBtn) toggleBtn.classList.remove('active');
+      if (createBtn) createBtn.style.display = 'none';
+      const clearBtn = $('#clear-selection-btn');
+      if (clearBtn) clearBtn.style.display = 'none';
+    }
     renderElements();
   }
 
@@ -791,8 +800,13 @@
     selectedGroupElements = [];
     const svg = $('#preview-area svg');
     if (svg) svg.querySelectorAll('.element-selected').forEach(el => el.classList.remove('element-selected'));
+    isMultiSelectMode = false;
+    const toggleBtn = $('#toggle-multiselect');
+    if (toggleBtn) toggleBtn.classList.remove('active');
     const createBtn = $('#create-group-btn');
     if (createBtn) createBtn.style.display = 'none';
+    const clearBtn = $('#clear-selection-btn');
+    if (clearBtn) clearBtn.style.display = 'none';
     renderElements();
   }
 
