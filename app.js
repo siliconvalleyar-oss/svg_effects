@@ -40,6 +40,226 @@
     { name: 'Luna',      svg: `<svg xmlns="${NS}" viewBox="0 0 200 200"><path d="M120 30 A65 65 0 1 0 120 170 A50 50 0 1 1 120 30" fill="none" stroke="#8e44ad" stroke-width="3"/></svg>` },
   ];
 
+  // ===== WORKSPACE SYSTEM =====
+  let workspaces = [];
+  let activeWorkspaceId = null;
+  let nextWorkspaceNum = 1;
+
+  function createWorkspace(name) {
+    const ws = {
+      id: 'ws_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
+      name: name || 'Espacio ' + nextWorkspaceNum++,
+      elementAnimations: {},
+      elementGroups: {},
+      selectedElementIndex: null,
+      selectedGroupElements: [],
+      isMultiSelectMode: false,
+      selectedGroupId: null,
+      nextGroupId: 1,
+      trajectories: {},
+      nextTrajId: 1,
+      isTrajectoryMode: false,
+      selectedTrajectoryId: null,
+      originalSvgString: null,
+      backgroundImages: [],
+      zoomLevel: 1,
+      isPiecesMode: false,
+      piecesSelectedIndex: -1,
+      boundaryActive: false,
+      undoStack: [],
+      undoIndex: -1,
+    };
+    return ws;
+  }
+
+  function getActiveWorkspace() {
+    return workspaces.find(w => w.id === activeWorkspaceId);
+  }
+
+  function saveActiveWorkspace() {
+    const ws = getActiveWorkspace();
+    if (!ws) return;
+    const svg = $('#preview-area svg');
+    ws.originalSvgString = originalSvgString;
+    ws.elementAnimations = JSON.parse(JSON.stringify(elementAnimations));
+    ws.elementGroups = JSON.parse(JSON.stringify(elementGroups));
+    ws.selectedElementIndex = selectedElementIndex;
+    ws.selectedGroupElements = [...selectedGroupElements];
+    ws.isMultiSelectMode = isMultiSelectMode;
+    ws.selectedGroupId = selectedGroupId;
+    ws.nextGroupId = nextGroupId;
+    ws.trajectories = JSON.parse(JSON.stringify(trajectories));
+    ws.nextTrajId = nextTrajId;
+    ws.isTrajectoryMode = isTrajectoryMode;
+    ws.selectedTrajectoryId = selectedTrajectoryId;
+    ws.backgroundImages = JSON.parse(JSON.stringify(backgroundImages));
+    ws.zoomLevel = zoomLevel;
+    ws.boundaryActive = boundaryActive;
+    ws.isPiecesMode = isPiecesMode;
+    ws.piecesSelectedIndex = selectedElement ? getElementIndex(selectedElement) : -1;
+    ws.undoStack = JSON.parse(JSON.stringify(undoStack));
+    ws.undoIndex = undoIndex;
+  }
+
+  function restoreWorkspace(ws) {
+    if (!ws) return;
+    activeWorkspaceId = ws.id;
+    originalSvgString = ws.originalSvgString;
+    elementAnimations = JSON.parse(JSON.stringify(ws.elementAnimations));
+    elementGroups = JSON.parse(JSON.stringify(ws.elementGroups));
+    selectedElementIndex = ws.selectedElementIndex;
+    selectedGroupElements = [...(ws.selectedGroupElements || [])];
+    isMultiSelectMode = ws.isMultiSelectMode;
+    selectedGroupId = ws.selectedGroupId;
+    nextGroupId = ws.nextGroupId;
+    trajectories = JSON.parse(JSON.stringify(ws.trajectories));
+    nextTrajId = ws.nextTrajId;
+    isTrajectoryMode = ws.isTrajectoryMode;
+    selectedTrajectoryId = ws.selectedTrajectoryId;
+    backgroundImages = JSON.parse(JSON.stringify(ws.backgroundImages));
+    zoomLevel = ws.zoomLevel;
+    boundaryActive = ws.boundaryActive;
+    undoStack = JSON.parse(JSON.stringify(ws.undoStack));
+    undoIndex = ws.undoIndex;
+    applyZoomBarPosition();
+
+    const area = $('#preview-area');
+    area.innerHTML = '';
+    area.style.display = 'flex';
+    if (originalSvgString) {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(originalSvgString, 'image/svg+xml');
+      const svg = doc.querySelector('svg');
+      if (svg) {
+        currentSvg = svg;
+        area.appendChild(document.importNode(svg, true));
+        const oldOverlay = $('#trajectory-overlay');
+        if (oldOverlay) oldOverlay.remove();
+        setTimeout(updateBoundary, 50);
+        setupZoom();
+        setupBoundary();
+        applyZoom();
+        $('#empty-state').style.display = 'none';
+        $('#presets-section').style.display = '';
+        $('#controls-section').style.display = '';
+        $('#export-section').style.display = '';
+        $('#history-section').style.display = '';
+        $('#bg-section').style.display = '';
+        $('#mode-section').style.display = '';
+        $('#trajectory-section').style.display = '';
+        $('#slides-section').classList.add('visible');
+        $('#elements-panel').classList.add('visible');
+      }
+    } else {
+      currentSvg = null;
+      $('#empty-state').style.display = '';
+      $('#presets-section').style.display = 'none';
+      $('#controls-section').style.display = 'none';
+      $('#export-section').style.display = 'none';
+      $('#history-section').style.display = 'none';
+      $('#bg-section').style.display = 'none';
+      $('#mode-section').style.display = 'none';
+      $('#trajectory-section').style.display = 'none';
+      $('#slides-section').classList.remove('visible');
+      $('#elements-panel').classList.remove('visible');
+      zoomLevel = 1;
+    }
+
+    renderElements();
+    renderBgLayers();
+    renderTrajectories();
+    renderTrajectoryOverlay();
+    updateUndoButtons();
+    updateWorkspaceTitle();
+
+    if (ws.isPiecesMode) {
+      enterPiecesMode();
+      if (ws.piecesSelectedIndex >= 0) {
+        const el = getElementByIndex(ws.piecesSelectedIndex);
+        if (el) { selectedElement = el; el.classList.add('element-selected'); }
+      }
+    }
+  }
+
+  function renderWorkspaceTabs() {
+    const container = $('#workspace-tabs');
+    if (!container) return;
+    container.innerHTML = '';
+    workspaces.forEach(ws => {
+      const tab = document.createElement('div');
+      tab.className = 'ws-tab' + (ws.id === activeWorkspaceId ? ' active' : '');
+      tab.innerHTML = `<span class="ws-tab-name">${ws.name}</span><span class="ws-tab-close" title="Cerrar">&times;</span>`;
+      tab.querySelector('.ws-tab-name').addEventListener('click', () => switchToWorkspace(ws.id));
+      tab.querySelector('.ws-tab-close').addEventListener('click', e => {
+        e.stopPropagation();
+        removeWorkspace(ws.id);
+      });
+      container.appendChild(tab);
+    });
+    // New workspace button
+    const addBtn = document.createElement('div');
+    addBtn.className = 'ws-tab ws-tab-add';
+    addBtn.textContent = '+';
+    addBtn.title = 'Nuevo espacio de trabajo';
+    addBtn.addEventListener('click', () => addNewWorkspace());
+    container.appendChild(addBtn);
+  }
+
+  function switchToWorkspace(id) {
+    if (id === activeWorkspaceId) return;
+    const target = workspaces.find(w => w.id === id);
+    if (!target) return;
+    saveActiveWorkspace();
+    restoreWorkspace(target);
+    renderWorkspaceTabs();
+  }
+
+  function addNewWorkspace() {
+    saveActiveWorkspace();
+    const ws = createWorkspace();
+    workspaces.push(ws);
+    saveActiveWorkspace();
+    activeWorkspaceId = ws.id;
+    restoreWorkspace(ws);
+    renderWorkspaceTabs();
+  }
+
+  function removeWorkspace(id) {
+    if (workspaces.length <= 1) return;
+    const idx = workspaces.findIndex(w => w.id === id);
+    if (idx === -1) return;
+    workspaces.splice(idx, 1);
+    if (activeWorkspaceId === id) {
+      // Switch to next available
+      const next = workspaces[Math.min(idx, workspaces.length - 1)];
+      activeWorkspaceId = null; // prevent save in switchTo
+      switchToWorkspace(next.id);
+    }
+    renderWorkspaceTabs();
+  }
+
+  function renameWorkspace(id) {
+    const ws = workspaces.find(w => w.id === id);
+    if (!ws) return;
+    const name = prompt('Nombre del espacio:', ws.name);
+    if (name) { ws.name = name; renderWorkspaceTabs(); }
+    // Also update title bar
+    updateWorkspaceTitle();
+  }
+
+  function updateWorkspaceTitle() {
+    const ws = getActiveWorkspace();
+    const titleEl = $('#workspace-title');
+    if (titleEl) titleEl.textContent = ws ? ws.name : 'SVG Animator';
+  }
+
+  // Initialize default workspace
+  (function initWorkspace() {
+    const ws = createWorkspace('Espacio 1');
+    workspaces.push(ws);
+    activeWorkspaceId = ws.id;
+  })();
+
   let currentSvg = null;
   let isPiecesMode = false;
   let selectedElement = null;
@@ -281,19 +501,26 @@
 
   // Background images
   let backgroundImages = [];
+  let bgDragState = null; // { id, type: 'move'|'resize', corner: 'nw'|'ne'|'sw'|'se', startX, startY, startImg }
+
   function addBackgroundImage(file) {
     const reader = new FileReader();
     reader.onload = e => {
       const id = 'bg_' + Date.now();
-      backgroundImages.push({ id, name: file.name, dataUrl: e.target.result, zIndex: 0 });
+      const area = $('#preview-area');
+      const w = area ? area.clientWidth : 800;
+      const h = area ? area.clientHeight : 600;
+      backgroundImages.push({ id, name: file.name, dataUrl: e.target.result, x: 50, y: 50, width: w * 0.5, height: h * 0.5, opacity: 0.8, hidden: false, zIndex: 0 });
       renderBackgrounds();
     };
     reader.readAsDataURL(file);
   }
+
   function removeBackgroundImage(id) {
     backgroundImages = backgroundImages.filter(b => b.id !== id);
     renderBackgrounds();
   }
+
   function moveBackground(id, dir) {
     const idx = backgroundImages.findIndex(b => b.id === id);
     if (idx === -1) return;
@@ -303,6 +530,12 @@
     if (dir === 'back') { const b = backgroundImages.splice(idx, 1)[0]; backgroundImages.unshift(b); }
     renderBackgrounds();
   }
+
+  function updateBgImageProp(id, key, value) {
+    const img = backgroundImages.find(b => b.id === id);
+    if (img) { img[key] = value; renderBgLayers(); }
+  }
+
   function renderBackgrounds() {
     const container = $('#bg-container');
     if (!container) return;
@@ -310,15 +543,24 @@
     backgroundImages.forEach((img, i) => {
       const item = document.createElement('div');
       item.className = 'bg-item';
+      if (img.hidden) item.style.opacity = '0.4';
       item.innerHTML = `
         <img src="${img.dataUrl}" class="bg-thumb">
         <span class="bg-name">${img.name}</span>
         <div class="bg-controls">
-          <button class="bg-btn" data-action="back" title="Al fondo">⬇</button>
-          <button class="bg-btn" data-action="down" title="Bajar">↓</button>
+          <button class="bg-btn" data-action="hide" title="${img.hidden ? 'Mostrar' : 'Ocultar'}">${img.hidden ? '👁' : '🙈'}</button>
+          <label style="font-size:9px;color:var(--text-dim);display:flex;align-items:center;gap:2px">
+            <input type="range" min="0" max="1" step="0.05" value="${img.opacity}" style="width:40px;height:3px" class="bg-opacity-slider">
+            ${Math.round(img.opacity * 100)}%
+          </label>
+        </div>
+        <div class="bg-controls">
+          <button class="bg-btn" data-action="back" title="Al fondo">⏮</button>
+          <button class="bg-btn" data-action="down" title="Bajar">◀</button>
           <span class="bg-z">${i + 1}</span>
-          <button class="bg-btn" data-action="up" title="Subir">↑</button>
-          <button class="bg-btn" data-action="front" title="Al frente">⬆</button>
+          <button class="bg-btn" data-action="up" title="Subir">▶</button>
+          <button class="bg-btn" data-action="front" title="Al frente">⏭</button>
+          <button class="bg-btn" data-action="reset-pos" title="Restablecer posicion">⟲</button>
           <button class="bg-btn danger" data-action="remove" title="Eliminar">✕</button>
         </div>`;
       item.querySelectorAll('.bg-btn').forEach(btn => {
@@ -326,12 +568,23 @@
           e.stopPropagation();
           const action = btn.dataset.action;
           if (action === 'remove') removeBackgroundImage(img.id);
+          else if (action === 'hide') { img.hidden = !img.hidden; renderBackgrounds(); }
+          else if (action === 'reset-pos') { img.x = 50; img.y = 50; img.width = 400; img.height = 300; renderBgLayers(); }
           else moveBackground(img.id, action);
         });
       });
+      const opSlider = item.querySelector('.bg-opacity-slider');
+      if (opSlider) {
+        opSlider.addEventListener('input', e => {
+          img.opacity = parseFloat(e.target.value);
+          updateBgImageProp(img.id, 'opacity', img.opacity);
+          // Update the label percentage
+          const label = e.target.closest('label');
+          if (label) label.childNodes[2].textContent = Math.round(img.opacity * 100) + '%';
+        });
+      }
       container.appendChild(item);
     });
-    // Render actual background images in preview
     renderBgLayers();
   }
 
@@ -346,12 +599,79 @@
     }
     bgLayer.innerHTML = '';
     backgroundImages.forEach((img, i) => {
-      const el = document.createElement('img');
-      el.className = 'bg-image';
-      el.src = img.dataUrl;
-      el.style.zIndex = i;
-      bgLayer.appendChild(el);
+      const wrapper = document.createElement('div');
+      wrapper.className = 'bg-image-wrapper' + (img.hidden ? ' hidden' : '');
+      wrapper.dataset.bgId = img.id;
+      wrapper.style.cssText = `position:absolute;left:${img.x}px;top:${img.y}px;width:${img.width}px;height:${img.height}px;z-index:${img.zIndex + i};opacity:${img.opacity};cursor:move;`;
+
+      const imageEl = document.createElement('img');
+      imageEl.className = 'bg-image';
+      imageEl.src = img.dataUrl;
+      imageEl.style.cssText = 'width:100%;height:100%;object-fit:contain;pointer-events:none;';
+      wrapper.appendChild(imageEl);
+
+      // Resize handles (4 corners)
+      const corners = ['nw', 'ne', 'sw', 'se'];
+      corners.forEach(corner => {
+        const handle = document.createElement('div');
+        handle.className = 'bg-resize-handle ' + corner;
+        handle.style.cssText = `position:absolute;width:12px;height:12px;background:var(--accent);border:2px solid #fff;border-radius:2px;z-index:2;${corner.includes('n') ? 'top:-6px' : 'bottom:-6px'};${corner.includes('w') ? 'left:-6px' : 'right:-6px'};cursor:${corner === 'nw' || corner === 'se' ? 'nwse-resize' : 'nesw-resize'};`;
+        handle.addEventListener('pointerdown', e => {
+          e.stopPropagation();
+          e.preventDefault();
+          bgDragState = { id: img.id, type: 'resize', corner, startX: e.clientX, startY: e.clientY, startImg: { ...img } };
+          document.addEventListener('pointermove', onBgPointerMove);
+          document.addEventListener('pointerup', onBgPointerUp);
+        });
+        wrapper.appendChild(handle);
+      });
+
+      // Move by dragging the wrapper
+      wrapper.addEventListener('pointerdown', e => {
+        if (e.target.classList.contains('bg-resize-handle')) return;
+        e.preventDefault();
+        bgDragState = { id: img.id, type: 'move', startX: e.clientX, startY: e.clientY, startImg: { ...img } };
+        document.addEventListener('pointermove', onBgPointerMove);
+        document.addEventListener('pointerup', onBgPointerUp);
+      });
+
+      bgLayer.appendChild(wrapper);
     });
+  }
+
+  function onBgPointerMove(e) {
+    if (!bgDragState) return;
+    const d = bgDragState;
+    const dx = e.clientX - d.startX;
+    const dy = e.clientY - d.startY;
+    const bg = backgroundImages.find(b => b.id === d.id);
+    if (!bg) return;
+
+    if (d.type === 'move') {
+      bg.x = d.startImg.x + dx;
+      bg.y = d.startImg.y + dy;
+    } else if (d.type === 'resize') {
+      const c = d.corner;
+      let { x, y, width, height } = d.startImg;
+      if (c.includes('w')) { x += dx; width -= dx; }
+      if (c.includes('e')) { width += dx; }
+      if (c.includes('n')) { y += dy; height -= dy; }
+      if (c.includes('s')) { height += dy; }
+      if (width < 20) width = 20;
+      if (height < 20) height = 20;
+      bg.x = x;
+      bg.y = y;
+      bg.width = width;
+      bg.height = height;
+    }
+    renderBgLayers();
+  }
+
+  function onBgPointerUp() {
+    if (!bgDragState) return;
+    document.removeEventListener('pointermove', onBgPointerMove);
+    document.removeEventListener('pointerup', onBgPointerUp);
+    bgDragState = null;
   }
 
   // Reset state
@@ -374,7 +694,7 @@
     undoStack = [];
     undoIndex = -1;
     updateUndoButtons();
-    loadSvgString(originalSvgString);
+    loadSvgString(originalSvgString, false);
   }
 
   // Slides state
@@ -561,7 +881,22 @@
     return { presetId: null, speed: 16, delay: 0, iter: 'infinite', dir: 'normal', ovalRx: 80, ovalRy: 40, ovalAngle: 0, arcRx: 80, arcRy: 80, directionAngle: 0, pivotX: null, pivotY: null, extraPresets: [], trajectoryId: null };
   }
 
-  function loadSvgString(svgStr) {
+  function loadSvgString(svgStr, intoNewWorkspace) {
+    // Save current workspace before switching
+    if (activeWorkspaceId) saveActiveWorkspace();
+
+    if (intoNewWorkspace !== false) {
+      const currentWs = getActiveWorkspace();
+      if (currentWs && !currentWs.originalSvgString) {
+        // Reuse empty workspace
+        activeWorkspaceId = currentWs.id;
+      } else {
+        const ws = createWorkspace();
+        workspaces.push(ws);
+        activeWorkspaceId = ws.id;
+      }
+    }
+
     originalSvgString = svgStr;
     const parser = new DOMParser();
     const doc = parser.parseFromString(svgStr, 'image/svg+xml');
@@ -613,6 +948,11 @@
     const oldOverlay = $('#preview-area #trajectory-overlay');
     if (oldOverlay) oldOverlay.remove();
     renderElements();
+    renderWorkspaceTabs();
+    updateWorkspaceTitle();
+
+    // Save fresh workspace state
+    saveActiveWorkspace();
   }
 
   function loadFile(file) {
@@ -1061,9 +1401,16 @@
       updateDirectionArrow(cfg.directionAngle);
     }
 
-    // Update trajectory assignment dropdown
+    // Update trajectory assignment dropdowns
+    const ids = Object.keys(trajectories);
+    const trajAssignControl = $('#traj-assign-control');
+    if (trajAssignControl) {
+      trajAssignControl.style.display = (ids.length > 0 && index !== null) ? '' : 'none';
+    }
     const trajSelect = $('#trajectory-select');
     if (trajSelect) trajSelect.value = cfg.trajectoryId || '';
+    const trajAssignSelect = $('#traj-assign-select');
+    if (trajAssignSelect) trajAssignSelect.value = cfg.trajectoryId || '';
   }
 
   function getConfigForSelected() {
@@ -1794,6 +2141,7 @@
   let isTrajectoryMode = false;
   let selectedTrajectoryId = null;
   let trajectoryPointDrag = null;
+  let isLassoMode = false;
   const trajColors = ['#f39c12','#e74c3c','#2ecc71','#3498db','#9b59b6','#1abc9c','#e67e22','#6c5ce7'];
 
   function ensureTrajectoryOverlay() {
@@ -1826,6 +2174,52 @@
 
     if (!isTrajectoryMode) { svg.style.display = 'none'; return; }
     svg.style.display = '';
+
+    // Lasso mode: clicking on empty space adds a point
+    if (isLassoMode && selectedTrajectoryId) {
+      svg.style.pointerEvents = 'auto';
+      svg.style.cursor = 'crosshair';
+      // Remove old lasso bg
+      const oldBg = svg.querySelector('.lasso-bg');
+      if (oldBg) oldBg.remove();
+      // Invisible rect to capture clicks on empty area
+      const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      bgRect.setAttribute('x', '-1000');
+      bgRect.setAttribute('y', '-1000');
+      bgRect.setAttribute('width', '4000');
+      bgRect.setAttribute('height', '4000');
+      bgRect.setAttribute('fill', 'transparent');
+      bgRect.classList.add('lasso-bg');
+      bgRect.style.pointerEvents = 'all';
+      bgRect.style.cursor = 'crosshair';
+      bgRect.addEventListener('click', e => {
+        e.stopPropagation();
+        const rect = svg.getBoundingClientRect();
+        const vb = svg.getAttribute('viewBox').split(/\s+/).map(Number);
+        const vx = (e.clientX - rect.left) / rect.width * vb[2] + vb[0];
+        const vy = (e.clientY - rect.top) / rect.height * vb[3] + vb[1];
+        const activeTraj = trajectories[selectedTrajectoryId];
+        if (!activeTraj) return;
+        // Find best insertion point
+        const pts = activeTraj.points;
+        if (pts.length < 2) {
+          pts.push({ x: vx, y: vy });
+        } else {
+          let bestIdx = 0, bestDist = Infinity;
+          for (let i = 0; i < pts.length; i++) {
+            const d = Math.hypot(vx - pts[i].x, vy - pts[i].y);
+            if (d < bestDist) { bestDist = d; bestIdx = i + 1; }
+          }
+          pts.splice(bestIdx, 0, { x: vx, y: vy });
+        }
+        renderTrajectoryOverlay();
+        renderTrajectories();
+      });
+      svg.insertBefore(bgRect, svg.firstChild);
+    } else {
+      svg.style.pointerEvents = '';
+      svg.style.cursor = '';
+    }
 
     const activeTraj = trajectories[selectedTrajectoryId];
     if (!activeTraj || !activeTraj.points || activeTraj.points.length < 1) return;
@@ -1975,25 +2369,37 @@
 
     if (window._updateTrajToggle) window._updateTrajToggle();
 
-    // Update assignment dropdown
-    if (select) {
-      const currentVal = select.value;
-      select.innerHTML = '<option value="">— Ninguna —</option>';
+    // Update assignment dropdowns
+    const populateSelect = (sel) => {
+      if (!sel) return;
+      const currentVal = sel.value;
+      sel.innerHTML = '<option value="">— Ninguna —</option>';
       ids.forEach(id => {
         const opt = document.createElement('option');
         opt.value = id;
         opt.textContent = trajectories[id].name;
-        select.appendChild(opt);
+        sel.appendChild(opt);
       });
-      if (currentVal && ids.includes(currentVal)) select.value = currentVal;
-      assignRow.style.display = ids.length > 0 ? '' : 'none';
+      if (currentVal && ids.includes(currentVal)) sel.value = currentVal;
+    };
+    populateSelect(select);
+    populateSelect($('#traj-assign-select'));
+    if (assignRow) assignRow.style.display = ids.length > 0 ? '' : 'none';
+    const trajAssignControl = $('#traj-assign-control');
+    if (trajAssignControl && selectedElementIndex !== null) {
+      trajAssignControl.style.display = ids.length > 0 ? '' : 'none';
     }
   }
 
-  function addTrajectory(name) {
+  function addTrajectory(name, points) {
     const n = name || 'Trayectoria ' + nextTrajId;
     const id = 'traj_' + nextTrajId++;
-    trajectories[id] = { name: n, points: [{ x: 50, y: 100 }, { x: 150, y: 100 }] };
+    const defaultPoints = points || [
+      { x: 30, y: 100 }, { x: 55, y: 60 },
+      { x: 100, y: 40 }, { x: 145, y: 60 },
+      { x: 170, y: 100 }
+    ];
+    trajectories[id] = { name: n, points: defaultPoints };
     selectedTrajectoryId = id;
     isTrajectoryMode = true;
     pushHistory();
@@ -2073,6 +2479,42 @@
       hideContextMenu();
       renderElements();
     });
+    // Trajectory assignment submenu
+    const trajIds = Object.keys(trajectories);
+    if (trajIds.length > 0) {
+      addMenuItem(menu, 'Asignar trayectoria →', () => { hideContextMenu(); });
+      trajIds.forEach(tid => {
+        const t = trajectories[tid];
+        addMenuItem(menu, '  ' + t.name, () => {
+          contextMenuTargets.forEach(i => {
+            if (elementAnimations[i]) {
+              elementAnimations[i].trajectoryId = tid;
+              applyOneAnimation(i);
+            }
+          });
+          hideContextMenu();
+          renderElements();
+          const trajSelect = $('#trajectory-select');
+          if (trajSelect && contextMenuTargets.length > 0) trajSelect.value = tid;
+          const trajAssignSelect = $('#traj-assign-select');
+          if (trajAssignSelect) trajAssignSelect.value = tid;
+        });
+      });
+      addMenuItem(menu, '  — Quitar trayectoria', () => {
+        contextMenuTargets.forEach(i => {
+          if (elementAnimations[i]) {
+            elementAnimations[i].trajectoryId = null;
+            applyOneAnimation(i);
+          }
+        });
+        hideContextMenu();
+        renderElements();
+        const trajSelect = $('#trajectory-select');
+        if (trajSelect) trajSelect.value = '';
+        const trajAssignSelect = $('#traj-assign-select');
+        if (trajAssignSelect) trajAssignSelect.value = '';
+      });
+    }
     addMenuItem(menu, 'Eliminar', () => { contextMenuTargets.forEach(i => removeElement(i)); hideContextMenu(); renderElements(); });
 
     menu.style.display = 'block';
@@ -2467,11 +2909,14 @@
       function updateTrajToggle() {
         toggle.classList.toggle('active', isTrajectoryMode && !!trajectories[selectedTrajectoryId]);
         toggle.textContent = isTrajectoryMode ? 'Cerrar trayectorias' : 'Editar trayectorias';
+        const lassoBtn = $('#lasso-toggle');
+        if (lassoBtn) lassoBtn.style.display = isTrajectoryMode ? '' : 'none';
       }
       toggle.addEventListener('click', () => {
         if (isTrajectoryMode) {
           isTrajectoryMode = false;
           selectedTrajectoryId = null;
+          isLassoMode = false;
         } else {
           const ids = Object.keys(trajectories);
           if (ids.length > 0) {
@@ -2487,19 +2932,36 @@
       window._updateTrajToggle = updateTrajToggle;
     }
 
-    // Assign trajectory dropdown
-    const select = $('#trajectory-select');
-    if (select) {
-      select.addEventListener('change', () => {
+    // Lasso toggle
+    const lassoBtn = $('#lasso-toggle');
+    if (lassoBtn) {
+      lassoBtn.addEventListener('click', () => {
+        isLassoMode = !isLassoMode;
+        lassoBtn.textContent = isLassoMode ? '✎ Lazo: ON' : '✎ Lazo: OFF';
+        lassoBtn.classList.toggle('active', isLassoMode);
+        renderTrajectoryOverlay();
+      });
+    }
+
+    // Assign trajectory dropdowns (sync both)
+    function onTrajAssignChange(select) {
+      return () => {
         if (selectedElementIndex === null) return;
         const cfg = elementAnimations[selectedElementIndex];
         if (!cfg) return;
         cfg.trajectoryId = select.value || null;
+        // Sync both selects
+        const sel2 = select.id === 'trajectory-select' ? $('#traj-assign-select') : $('#trajectory-select');
+        if (sel2) sel2.value = select.value;
         pushHistory();
         applyOneAnimation(selectedElementIndex);
         renderElements();
-      });
+      };
     }
+    const select1 = $('#trajectory-select');
+    if (select1) select1.addEventListener('change', onTrajAssignChange(select1));
+    const select2 = $('#traj-assign-select');
+    if (select2) select2.addEventListener('change', onTrajAssignChange(select2));
   }
   setupTrajectoryUI();
 
@@ -2508,6 +2970,10 @@
   $('#bg-file-input').addEventListener('change', e => {
     if (e.target.files.length) { addBackgroundImage(e.target.files[0]); e.target.value = ''; }
   });
+
+  // Initialize workspace tabs
+  renderWorkspaceTabs();
+  updateWorkspaceTitle();
 
   // Keyboard shortcuts
   document.addEventListener('keydown', e => {
