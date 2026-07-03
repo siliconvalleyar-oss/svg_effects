@@ -101,6 +101,20 @@
 
   // Zoom
   let zoomLevel = 1;
+  let zoomBarPosition = localStorage.getItem('zoomBarPosition') || 'br'; // br, bl, tr, tl
+  const zoomPositions = { br: { bottom: '8px', right: '8px' }, bl: { bottom: '8px', left: '8px' }, tr: { top: '8px', right: '8px' }, tl: { top: '8px', left: '8px' } };
+
+  function applyZoomBarPosition() {
+    const zb = $('#zoom-bar');
+    if (!zb) return;
+    const pos = zoomPositions[zoomBarPosition] || zoomPositions.br;
+    zb.style.removeProperty('left');
+    zb.style.removeProperty('top');
+    zb.style.removeProperty('right');
+    zb.style.removeProperty('bottom');
+    Object.entries(pos).forEach(([k, v]) => zb.style[k] = v);
+  }
+
   function setupZoom() {
     const area = $('#preview-area');
     if (!area) return;
@@ -112,6 +126,7 @@
       area.appendChild(zoomBar);
       $('#zoom-out').addEventListener('click', () => { zoomLevel = Math.max(0.2, zoomLevel / 1.3); applyZoom(); });
       $('#zoom-in').addEventListener('click', () => { zoomLevel = Math.min(5, zoomLevel * 1.3); applyZoom(); });
+      applyZoomBarPosition();
       // Dragging to reposition
       let drag = null;
       zoomBar.addEventListener('pointerdown', e => {
@@ -130,6 +145,42 @@
       });
       zoomBar.addEventListener('pointerup', () => { drag = null; });
       zoomBar.addEventListener('pointercancel', () => { drag = null; });
+
+      // Right-click context menu for position presets
+      zoomBar.addEventListener('contextmenu', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        const menu = $('#zoom-position-menu');
+        if (menu) menu.remove();
+        const m = document.createElement('div');
+        m.id = 'zoom-position-menu';
+        m.style.cssText = 'position:fixed;z-index:99999;background:var(--surface2);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.5);overflow:hidden;min-width:120px';
+        m.style.left = e.clientX + 'px';
+        m.style.top = e.clientY + 'px';
+        const presets = [
+          { label: 'Abajo derecha', val: 'br' },
+          { label: 'Abajo izquierda', val: 'bl' },
+          { label: 'Arriba derecha', val: 'tr' },
+          { label: 'Arriba izquierda', val: 'tl' },
+        ];
+        presets.forEach(pr => {
+          const btn = document.createElement('button');
+          btn.textContent = pr.label;
+          btn.style.cssText = 'display:block;width:100%;padding:8px 14px;border:none;background:transparent;color:var(--text);font-size:12px;text-align:left;cursor:pointer';
+          btn.addEventListener('mouseenter', () => btn.style.background = 'var(--accent)');
+          btn.addEventListener('mouseleave', () => btn.style.background = 'transparent');
+          btn.addEventListener('click', () => {
+            zoomBarPosition = pr.val;
+            localStorage.setItem('zoomBarPosition', zoomBarPosition);
+            applyZoomBarPosition();
+            m.remove();
+          });
+          m.appendChild(btn);
+        });
+        document.body.appendChild(m);
+        const close = e2 => { if (!e2.target.closest('#zoom-position-menu')) { m.remove(); document.removeEventListener('click', close); } };
+        setTimeout(() => document.addEventListener('click', close), 10);
+      });
     }
   }
   function applyZoom() {
