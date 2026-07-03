@@ -450,7 +450,7 @@
     btn.innerHTML = `<span class="dot" style="background:${p.color}"></span>${p.name}`;
     btn.addEventListener('click', () => {
       lastPresetId = p.id;
-      selectPreset(p.id);
+      togglePreset(p.id);
     });
     presetGrid.appendChild(btn);
   });
@@ -498,7 +498,7 @@
   });
 
   function getDefaultElementConfig() {
-    return { presetId: null, speed: 16, delay: 0, iter: 'infinite', dir: 'normal', ovalRx: 80, ovalRy: 40, ovalAngle: 0, arcRx: 80, arcRy: 80, directionAngle: 0 };
+    return { presetId: null, speed: 16, delay: 0, iter: 'infinite', dir: 'normal', ovalRx: 80, ovalRy: 40, ovalAngle: 0, arcRx: 80, arcRy: 80, directionAngle: 0, pivotX: null, pivotY: null, extraPresets: [] };
   }
 
   function loadSvgString(svgStr) {
@@ -914,6 +914,7 @@
     $$('.element-thumb').forEach(t => t.classList.toggle('selected', parseInt(t.dataset.index) === index));
     highlightElement(index);
     loadElementConfig(index);
+    updatePivotMarker(index);
   }
 
   function highlightElement(index) {
@@ -931,9 +932,9 @@
     const cfg = elementAnimations[index];
     if (!cfg) return;
 
-    const hasPreset = !!cfg.presetId;
-    if (hasPreset) {
-      $$('.preset-btn').forEach(b => b.classList.toggle('active', b.dataset.id === cfg.presetId));
+    const activePresetIds = getAllActivePresets(cfg);
+    if (activePresetIds.length > 0) {
+      $$('.preset-btn').forEach(b => b.classList.toggle('active', activePresetIds.includes(b.dataset.id)));
     } else {
       $$('.preset-btn').forEach(b => b.classList.remove('active'));
     }
@@ -1065,10 +1066,10 @@
         kf = `@keyframes ${name} { 0%,100% { transform: translate(0,0); } 25% { transform: translate(${-12*cos}px,${-12*sin}px); } 50% { transform: translate(${-25*cos}px,${-25*sin}px); } 75% { transform: translate(${-12*cos}px,${-12*sin}px); } }`;
         break;
       case 'arc':
-        kf = `@keyframes ${name} { 0% { transform: translate(calc(var(--arc-rx,80px) * ${-cos}), calc(var(--arc-rx,80px) * ${-sin})); } 25% { transform: translate(calc(var(--arc-rx,80px) * ${-0.7071*cos} + var(--arc-ry,80px) * ${0.7071*sin}), calc(var(--arc-rx,80px) * ${-0.7071*sin} + var(--arc-ry,80px) * ${-0.7071*cos})); } 50% { transform: translate(calc(var(--arc-ry,80px) * ${sin}), calc(var(--arc-ry,80px) * ${-cos})); } 75% { transform: translate(calc(var(--arc-rx,80px) * ${0.7071*cos} + var(--arc-ry,80px) * ${0.7071*sin}), calc(var(--arc-rx,80px) * ${0.7071*sin} + var(--arc-ry,80px) * ${-0.7071*cos})); } 100% { transform: translate(calc(var(--arc-rx,80px) * ${cos}), calc(var(--arc-rx,80px) * ${sin})); } }`;
+        kf = `@keyframes ${name} { 0% { transform: translate(calc(var(--arc-offset-x,0px) + var(--arc-rx,80px) * ${-cos}), calc(var(--arc-offset-y,0px) + var(--arc-rx,80px) * ${-sin})); } 25% { transform: translate(calc(var(--arc-offset-x,0px) + var(--arc-rx,80px) * ${-0.7071*cos} + var(--arc-ry,80px) * ${0.7071*sin}), calc(var(--arc-offset-y,0px) + var(--arc-rx,80px) * ${-0.7071*sin} + var(--arc-ry,80px) * ${-0.7071*cos})); } 50% { transform: translate(calc(var(--arc-offset-x,0px) + var(--arc-ry,80px) * ${sin}), calc(var(--arc-offset-y,0px) + var(--arc-ry,80px) * ${-cos})); } 75% { transform: translate(calc(var(--arc-offset-x,0px) + var(--arc-rx,80px) * ${0.7071*cos} + var(--arc-ry,80px) * ${0.7071*sin}), calc(var(--arc-offset-y,0px) + var(--arc-rx,80px) * ${0.7071*sin} + var(--arc-ry,80px) * ${-0.7071*cos})); } 100% { transform: translate(calc(var(--arc-offset-x,0px) + var(--arc-rx,80px) * ${cos}), calc(var(--arc-offset-y,0px) + var(--arc-rx,80px) * ${sin})); } }`;
         break;
       case 'radiate':
-        kf = `@keyframes ${name} { 0% { transform: translate(calc(var(--arc-rx,80px) * ${-cos}), calc(var(--arc-rx,80px) * ${-sin})); filter: drop-shadow(0 0 2px rgba(230,126,34,0.2)); } 25% { transform: translate(calc(var(--arc-rx,80px) * ${-0.7071*cos} + var(--arc-ry,80px) * ${0.7071*sin}), calc(var(--arc-rx,80px) * ${-0.7071*sin} + var(--arc-ry,80px) * ${-0.7071*cos})); filter: drop-shadow(0 0 8px rgba(230,126,34,0.4)); } 50% { transform: translate(calc(var(--arc-ry,80px) * ${sin}), calc(var(--arc-ry,80px) * ${-cos})); filter: drop-shadow(0 0 24px rgba(230,126,34,0.9)); } 75% { transform: translate(calc(var(--arc-rx,80px) * ${0.7071*cos} + var(--arc-ry,80px) * ${0.7071*sin}), calc(var(--arc-rx,80px) * ${0.7071*sin} + var(--arc-ry,80px) * ${-0.7071*cos})); filter: drop-shadow(0 0 8px rgba(230,126,34,0.4)); } 100% { transform: translate(calc(var(--arc-rx,80px) * ${cos}), calc(var(--arc-rx,80px) * ${sin})); filter: drop-shadow(0 0 2px rgba(230,126,34,0.2)); } }`;
+        kf = `@keyframes ${name} { 0% { transform: translate(calc(var(--arc-offset-x,0px) + var(--arc-rx,80px) * ${-cos}), calc(var(--arc-offset-y,0px) + var(--arc-rx,80px) * ${-sin})); filter: drop-shadow(0 0 2px rgba(230,126,34,0.2)); } 25% { transform: translate(calc(var(--arc-offset-x,0px) + var(--arc-rx,80px) * ${-0.7071*cos} + var(--arc-ry,80px) * ${0.7071*sin}), calc(var(--arc-offset-y,0px) + var(--arc-rx,80px) * ${-0.7071*sin} + var(--arc-ry,80px) * ${-0.7071*cos})); filter: drop-shadow(0 0 8px rgba(230,126,34,0.4)); } 50% { transform: translate(calc(var(--arc-offset-x,0px) + var(--arc-ry,80px) * ${sin}), calc(var(--arc-offset-y,0px) + var(--arc-ry,80px) * ${-cos})); filter: drop-shadow(0 0 24px rgba(230,126,34,0.9)); } 75% { transform: translate(calc(var(--arc-offset-x,0px) + var(--arc-rx,80px) * ${0.7071*cos} + var(--arc-ry,80px) * ${0.7071*sin}), calc(var(--arc-offset-y,0px) + var(--arc-rx,80px) * ${0.7071*sin} + var(--arc-ry,80px) * ${-0.7071*cos})); filter: drop-shadow(0 0 8px rgba(230,126,34,0.4)); } 100% { transform: translate(calc(var(--arc-offset-x,0px) + var(--arc-rx,80px) * ${cos}), calc(var(--arc-offset-y,0px) + var(--arc-rx,80px) * ${sin})); filter: drop-shadow(0 0 2px rgba(230,126,34,0.2)); } }`;
         break;
       case 'gravity':
         kf = `@keyframes ${name} { 0% { transform: translate(${-100*cos}px,${-100*sin}px); } 30% { transform: translate(${80*cos}px,${80*sin}px); } 50% { transform: translate(${-40*cos}px,${-40*sin}px); } 70% { transform: translate(${30*cos}px,${30*sin}px); } 85% { transform: translate(${-10*cos}px,${-10*sin}px); } 100% { transform: translate(0,0); } }`;
@@ -1123,30 +1124,38 @@
     el.style.transformOrigin = `${center.x}px ${center.y}px`;
     el.style.transformBox = 'view-box';
 
-    const preset = presets.find(p => p.id === cfg.presetId);
-      const isTranslateBased = ['slide', 'bounce', 'shake', 'float', 'gravity', 'levitate', 'arc', 'radiate'].includes(cfg.presetId);
-    const hasAngle = cfg.directionAngle && cfg.directionAngle !== 0;
+    const activeIds = getAllActivePresets(cfg);
+    const easingMap = {};
+    activeIds.forEach(id => {
+      const p = presets.find(pr => pr.id === id);
+      if (p) easingMap[id] = p.easing;
+    });
+    const mainEasing = easingMap[cfg.presetId] || 'ease-in-out';
 
-    let animName;
-    if (isTranslateBased && hasAngle) {
-      animName = ensureDirectionKeyframes(cfg.presetId, cfg.directionAngle);
-    } else {
-      animName = 'svg' + cfg.presetId.charAt(0).toUpperCase() + cfg.presetId.slice(1);
-    }
-
-    const easing = preset ? preset.easing : 'ease-in-out';
-    el.style.animation = `${animName} ${cfg.speed}s ${easing} ${cfg.iter} ${cfg.dir}`;
+    // Build comma-separated animation string for all active presets
+    const parts = [];
+    activeIds.forEach(id => {
+      const e = easingMap[id] || 'ease-in-out';
+      const animName = getAnimationName(id, cfg.directionAngle);
+      parts.push(`${animName} ${cfg.speed}s ${e} ${cfg.iter} ${cfg.dir}`);
+    });
+    el.style.animation = parts.join(', ');
     el.style.animationDelay = cfg.delay + 's';
     el.style.animationPlayState = animationPlaying ? 'running' : 'paused';
 
+    // Set CSS vars for configurable presets
     if (cfg.presetId === 'oval') {
       el.style.setProperty('--oval-rx', cfg.ovalRx + 'px');
       el.style.setProperty('--oval-ry', cfg.ovalRy + 'px');
     }
 
-    if (cfg.presetId === 'arc' || cfg.presetId === 'radiate') {
+    if (isArcPreset(cfg.presetId)) {
       el.style.setProperty('--arc-rx', cfg.arcRx + 'px');
       el.style.setProperty('--arc-ry', cfg.arcRy + 'px');
+      const pivotCx = cfg.pivotX !== null ? cfg.pivotX : center.x;
+      const pivotCy = cfg.pivotY !== null ? cfg.pivotY : center.y;
+      el.style.setProperty('--arc-offset-x', (pivotCx - center.x) + 'px');
+      el.style.setProperty('--arc-offset-y', (pivotCy - center.y) + 'px');
     }
 
     if (cfg.presetId === 'draw') {
@@ -1154,6 +1163,8 @@
       el.style.strokeDasharray = length;
       el.style.setProperty('--path-length', length);
     }
+
+    updatePivotMarker(index);
   }
 
   // ===== TRAJECTORY ARROW =====
@@ -1184,7 +1195,7 @@
     </svg>`;
   }
 
-  function selectPreset(id) {
+  function togglePreset(id) {
     if (selectedElementIndex === null) {
       const first = $('#element-grid .element-thumb');
       if (first) selectElement(parseInt(first.dataset.index));
@@ -1193,19 +1204,32 @@
     pushHistory();
     const cfg = getConfigForSelected();
     if (!cfg) return;
-    const preset = presets.find(p => p.id === id);
-    cfg.presetId = id;
-    $('#speed-slider').value = cfg.speed;
-    updateSpeedDisplay(selectedElementIndex);
-    $('#oval-controls').style.display = id === 'oval' ? '' : 'none';
-    $('#arc-controls').style.display = (id === 'arc' || id === 'radiate') ? '' : 'none';
-    const translateBased = ['slide', 'bounce', 'shake', 'float', 'gravity', 'levitate', 'arc', 'radiate'];
-    $('#direction-controls').style.display = translateBased.includes(id) ? '' : 'none';
 
-    // Check if element belongs to a group
+    // Toggle logic
+    if (cfg.presetId === id) {
+      // Toggle off primary
+      if (cfg.extraPresets && cfg.extraPresets.length > 0) {
+        cfg.presetId = cfg.extraPresets.shift();
+      } else {
+        cfg.presetId = null;
+      }
+    } else if (cfg.extraPresets && cfg.extraPresets.includes(id)) {
+      // Remove from extras
+      cfg.extraPresets = cfg.extraPresets.filter(pid => pid !== id);
+    } else {
+      // Add new preset: make it primary, push old primary to extras
+      if (cfg.presetId) {
+        cfg.extraPresets = cfg.extraPresets || [];
+        if (!cfg.extraPresets.includes(cfg.presetId)) cfg.extraPresets.push(cfg.presetId);
+      }
+      cfg.presetId = id;
+    }
+
+    updateControlsForPreset(cfg.presetId);
+
+    // Apply to group or single
     const groupId = Object.keys(elementGroups).find(gid => elementGroups[gid].elements.includes(selectedElementIndex));
     if (groupId) {
-      // Apply to all elements in the group
       const group = elementGroups[groupId];
       group.config = { ...cfg };
       group.elements.forEach(idx => {
@@ -1216,6 +1240,16 @@
       applyOneAnimation(selectedElementIndex);
     }
     renderElements();
+  }
+
+  function updateControlsForPreset(primaryId) {
+    if (primaryId) {
+      $('#speed-slider').value = elementAnimations[selectedElementIndex]?.speed || 16;
+      updateSpeedDisplay(selectedElementIndex);
+    }
+    $('#oval-controls').style.display = primaryId === 'oval' ? '' : 'none';
+    $('#arc-controls').style.display = isArcPreset(primaryId) ? '' : 'none';
+    $('#direction-controls').style.display = isTranslateBased(primaryId) ? '' : 'none';
   }
 
   function updateSpeedDisplay(index) {
@@ -1422,6 +1456,8 @@
       el.style.removeProperty('transform');
     });
     restoreAnimations();
+    const marker = $('#pivot-marker');
+    if (marker) marker.style.display = 'none';
     setAllAnimationsPlayState(animationPlaying ? 'running' : 'paused');
     selectedElement = null;
   }
@@ -1487,6 +1523,96 @@
     return elements[index] || null;
   }
 
+  // ===== PIVOT MARKER =====
+
+  let pivotDragState = null;
+
+  function isArcPreset(id) { return id === 'arc' || id === 'radiate'; }
+  function isTranslateBased(id) { return ['slide', 'bounce', 'shake', 'float', 'gravity', 'levitate', 'arc', 'radiate'].includes(id); }
+
+  function updatePivotMarker(index) {
+    const marker = $('#pivot-marker');
+    if (!marker) return;
+    const el = getElementByIndex(index);
+    const cfg = elementAnimations[index];
+    if (!el || !cfg || !isArcPreset(cfg.presetId) || !isPiecesMode) {
+      marker.style.display = 'none';
+      return;
+    }
+    const center = getElementCenter(el);
+    const px = cfg.pivotX !== null ? cfg.pivotX : center.x;
+    const py = cfg.pivotY !== null ? cfg.pivotY : center.y;
+    const svgEl = $('#preview-area svg');
+    if (!svgEl) return;
+    const rect = svgEl.getBoundingClientRect();
+    const vb = getSvgViewBox(svgEl);
+    const scaleX = rect.width / vb.w;
+    const scaleY = rect.height / vb.h;
+    marker.style.left = (rect.left + px * scaleX) + 'px';
+    marker.style.top = (rect.top + py * scaleY) + 'px';
+    marker.dataset.pivotIndex = index;
+    marker.style.display = 'block';
+  }
+
+  // Pivot drag with pointer events
+  document.addEventListener('pointerdown', e => {
+    if (!e.target.closest('#pivot-marker')) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const marker = $('#pivot-marker');
+    if (!marker || marker.style.display === 'none') return;
+    const idx = parseInt(marker.dataset.pivotIndex);
+    if (isNaN(idx)) return;
+    const svgEl = $('#preview-area svg');
+    if (!svgEl) return;
+    const rect = svgEl.getBoundingClientRect();
+    const vb = getSvgViewBox(svgEl);
+    pivotDragState = { index: idx, svgRect: rect, vbW: vb.w, vbH: vb.h, lastX: e.clientX, lastY: e.clientY };
+    document.addEventListener('pointermove', onPivotPointerMove);
+    document.addEventListener('pointerup', onPivotPointerUp);
+  });
+
+  function onPivotPointerMove(e) {
+    if (!pivotDragState) return;
+    e.preventDefault();
+    const ds = pivotDragState;
+    const dx = (e.clientX - ds.lastX) * ds.vbW / ds.svgRect.width;
+    const dy = (e.clientY - ds.lastY) * ds.vbH / ds.svgRect.height;
+    const cfg = elementAnimations[ds.index];
+    const el = getElementByIndex(ds.index);
+    if (!cfg || !el) return;
+    const center = getElementCenter(el);
+    cfg.pivotX = (cfg.pivotX !== null ? cfg.pivotX : center.x) + dx;
+    cfg.pivotY = (cfg.pivotY !== null ? cfg.pivotY : center.y) + dy;
+    pivotDragState.lastX = e.clientX;
+    pivotDragState.lastY = e.clientY;
+    applyOneAnimation(ds.index);
+    updatePivotMarker(ds.index);
+  }
+
+  function onPivotPointerUp() {
+    if (!pivotDragState) return;
+    document.removeEventListener('pointermove', onPivotPointerMove);
+    document.removeEventListener('pointerup', onPivotPointerUp);
+    pushHistory();
+    pivotDragState = null;
+  }
+
+  function getAnimationName(presetId, angle) {
+    const hasAngle = angle && angle !== 0;
+    if (isTranslateBased(presetId) && hasAngle) {
+      return ensureDirectionKeyframes(presetId, angle);
+    }
+    return 'svg' + presetId.charAt(0).toUpperCase() + presetId.slice(1);
+  }
+
+  function getAllActivePresets(cfg) {
+    const presets = [];
+    if (cfg.presetId) presets.push(cfg.presetId);
+    if (cfg.extraPresets) cfg.extraPresets.forEach(id => { if (!presets.includes(id)) presets.push(id); });
+    return presets;
+  }
+
   // ===== CONTEXT MENU =====
 
   let contextMenuTargets = [];
@@ -1501,31 +1627,33 @@
 
     menu.innerHTML = '';
 
-    const belongsToGroup = indices.some(i => Object.keys(elementGroups).find(gid => elementGroups[gid].elements.includes(i)));
-    const anyHidden = indices.some(i => { const el = getElementByIndex(i); return el && el.style.display === 'none'; });
-
-    if (indices.length >= 2) {
-      addMenuItem(menu, 'Agrupar', () => { createGroupFromSelection(contextMenuTargets); hideContextMenu(); });
-    }
-    if (belongsToGroup) {
-      addMenuItem(menu, 'Desagrupar', () => {
-        contextMenuTargets.forEach(i => {
-          Object.keys(elementGroups).forEach(gid => {
-            const g = elementGroups[gid];
-            const pos = g.elements.indexOf(i);
-            if (pos !== -1) {
-              g.elements.splice(pos, 1);
-              if (g.elements.length < 2) delete elementGroups[gid];
-            }
-          });
-        });
-        hideContextMenu();
-        renderElements();
-      });
-    }
-    addMenuItem(menu, anyHidden ? 'Ver' : 'Ocultar', () => {
-      toggleVisibility(contextMenuTargets);
+    addMenuItem(menu, 'Agrupar', () => {
+      if (contextMenuTargets.length >= 2) createGroupFromSelection(contextMenuTargets);
       hideContextMenu();
+    });
+    addMenuItem(menu, 'Desagrupar', () => {
+      contextMenuTargets.forEach(i => {
+        Object.keys(elementGroups).forEach(gid => {
+          const g = elementGroups[gid];
+          const pos = g.elements.indexOf(i);
+          if (pos !== -1) {
+            g.elements.splice(pos, 1);
+            if (g.elements.length < 2) delete elementGroups[gid];
+          }
+        });
+      });
+      hideContextMenu();
+      renderElements();
+    });
+    addMenuItem(menu, 'Ver', () => {
+      contextMenuTargets.forEach(i => { const el = getElementByIndex(i); if (el) el.style.display = ''; });
+      hideContextMenu();
+      renderElements();
+    });
+    addMenuItem(menu, 'Ocultar', () => {
+      contextMenuTargets.forEach(i => { const el = getElementByIndex(i); if (el) el.style.display = 'none'; });
+      hideContextMenu();
+      renderElements();
     });
     addMenuItem(menu, 'Eliminar', () => { contextMenuTargets.forEach(i => removeElement(i)); hideContextMenu(); renderElements(); });
 
@@ -1639,73 +1767,95 @@
     let embeddedStyle = '';
     let elementStyles = '';
 
+    function getExportKeyframe(id, angle) {
+      const hasAngle = angle && angle !== 0;
+      if (!hasAngle) return null;
+      const rad = angle * Math.PI / 180;
+      const cos = Math.cos(rad);
+      const sin = Math.sin(rad);
+      switch (id) {
+        case 'slide': return `@keyframes ${id}_export_${i}_${angle} { 0%,100% { transform: translate(${-80*cos}px,${-80*sin}px); } 50% { transform: translate(${80*cos}px,${80*sin}px); } }`;
+        case 'bounce': return `@keyframes ${id}_export_${i}_${angle} { 0%,100% { transform: translate(0,0); } 50% { transform: translate(${20*cos}px,${20*sin}px); } }`;
+        case 'shake': return `@keyframes ${id}_export_${i}_${angle} { 0%,100% { transform: translate(0,0); } 10%,30%,50%,70%,90% { transform: translate(${-8*cos}px,${-8*sin}px); } 20%,40%,60%,80% { transform: translate(${8*cos}px,${8*sin}px); } }`;
+        case 'float': return `@keyframes ${id}_export_${i}_${angle} { 0%,100% { transform: translate(0,0); } 50% { transform: translate(${15*cos}px,${15*sin}px); } }`;
+        case 'levitate': return `@keyframes ${id}_export_${i}_${angle} { 0%,100% { transform: translate(0,0); } 25% { transform: translate(${-12*cos}px,${-12*sin}px); } 50% { transform: translate(${-25*cos}px,${-25*sin}px); } 75% { transform: translate(${-12*cos}px,${-12*sin}px); } }`;
+        case 'arc': return `@keyframes ${id}_export_${i}_${angle} { 0% { transform: translate(calc(var(--arc-offset-x,0px) + var(--arc-rx,80px) * ${-cos}), calc(var(--arc-offset-y,0px) + var(--arc-rx,80px) * ${-sin})); } 25% { transform: translate(calc(var(--arc-offset-x,0px) + var(--arc-rx,80px) * ${-0.7071*cos} + var(--arc-ry,80px) * ${0.7071*sin}), calc(var(--arc-offset-y,0px) + var(--arc-rx,80px) * ${-0.7071*sin} + var(--arc-ry,80px) * ${-0.7071*cos})); } 50% { transform: translate(calc(var(--arc-offset-x,0px) + var(--arc-ry,80px) * ${sin}), calc(var(--arc-offset-y,0px) + var(--arc-ry,80px) * ${-cos})); } 75% { transform: translate(calc(var(--arc-offset-x,0px) + var(--arc-rx,80px) * ${0.7071*cos} + var(--arc-ry,80px) * ${0.7071*sin}), calc(var(--arc-offset-y,0px) + var(--arc-rx,80px) * ${0.7071*sin} + var(--arc-ry,80px) * ${-0.7071*cos})); } 100% { transform: translate(calc(var(--arc-offset-x,0px) + var(--arc-rx,80px) * ${cos}), calc(var(--arc-offset-y,0px) + var(--arc-rx,80px) * ${sin})); } }`;
+        case 'radiate': return `@keyframes ${id}_export_${i}_${angle} { 0% { transform: translate(calc(var(--arc-offset-x,0px) + var(--arc-rx,80px) * ${-cos}), calc(var(--arc-offset-y,0px) + var(--arc-rx,80px) * ${-sin})); filter: drop-shadow(0 0 2px rgba(230,126,34,0.2)); } 25% { transform: translate(calc(var(--arc-offset-x,0px) + var(--arc-rx,80px) * ${-0.7071*cos} + var(--arc-ry,80px) * ${0.7071*sin}), calc(var(--arc-offset-y,0px) + var(--arc-rx,80px) * ${-0.7071*sin} + var(--arc-ry,80px) * ${-0.7071*cos})); filter: drop-shadow(0 0 8px rgba(230,126,34,0.4)); } 50% { transform: translate(calc(var(--arc-offset-x,0px) + var(--arc-ry,80px) * ${sin}), calc(var(--arc-offset-y,0px) + var(--arc-ry,80px) * ${-cos})); filter: drop-shadow(0 0 24px rgba(230,126,34,0.9)); } 75% { transform: translate(calc(var(--arc-offset-x,0px) + var(--arc-rx,80px) * ${0.7071*cos} + var(--arc-ry,80px) * ${0.7071*sin}), calc(var(--arc-offset-y,0px) + var(--arc-rx,80px) * ${0.7071*sin} + var(--arc-ry,80px) * ${-0.7071*cos})); filter: drop-shadow(0 0 8px rgba(230,126,34,0.4)); } 100% { transform: translate(calc(var(--arc-offset-x,0px) + var(--arc-rx,80px) * ${cos}), calc(var(--arc-offset-y,0px) + var(--arc-rx,80px) * ${sin})); filter: drop-shadow(0 0 2px rgba(230,126,34,0.2)); } }`;
+        case 'gravity': return `@keyframes ${id}_export_${i}_${angle} { 0% { transform: translate(${-100*cos}px,${-100*sin}px); } 30% { transform: translate(${80*cos}px,${80*sin}px); } 50% { transform: translate(${-40*cos}px,${-40*sin}px); } 70% { transform: translate(${30*cos}px,${30*sin}px); } 85% { transform: translate(${-10*cos}px,${-10*sin}px); } 100% { transform: translate(0,0); } }`;
+      }
+      return null;
+    }
+
+    function getBaseKeyframeName(id) {
+      const map = { rotate: 'svgRotate', wheel: 'svgWheel', pulse: 'svgPulse', bounce: 'svgBounce', gravity: 'svgGravity', slide: 'svgSlide', oval: 'svgOval', fade: 'svgFade', draw: 'svgDraw', shake: 'svgShake', float: 'svgFloat', levitate: 'svgLevitate', arc: 'svgArc', radiate: 'svgRadiate', spin: 'svgSpin', glow: 'svgGlow' };
+      return map[id] || null;
+    }
+
+    function ensureExportKeyframe(id) {
+      const name = getBaseKeyframeName(id);
+      if (!name || embeddedStyle.includes(name)) return name;
+      const kfs = {
+        svgRotate: `@keyframes svgRotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`,
+        svgWheel: `@keyframes svgWheel { 0% { transform: rotate(0deg); } 25% { transform: rotate(90deg); } 50% { transform: rotate(180deg); } 75% { transform: rotate(270deg); } 100% { transform: rotate(360deg); } }`,
+        svgPulse: `@keyframes svgPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.15); } }`,
+        svgBounce: `@keyframes svgBounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }`,
+        svgGravity: `@keyframes svgGravity { 0% { transform: translateY(-100px); } 30% { transform: translateY(80px); } 50% { transform: translateY(-40px); } 70% { transform: translateY(30px); } 85% { transform: translateY(-10px); } 100% { transform: translateY(0); } }`,
+        svgSlide: `@keyframes svgSlide { 0%,100% { transform: translateX(-80px); } 50% { transform: translateX(80px); } }`,
+        svgOval: `@keyframes svgOval { 0% { transform: translate(0,0); } 25% { transform: translate(var(--oval-rx,80px),0); } 50% { transform: translate(0,var(--oval-ry,40px)); } 75% { transform: translate(calc(-1*var(--oval-rx,80px)),0); } 100% { transform: translate(0,0); } }`,
+        svgFade: `@keyframes svgFade { 0%,100% { opacity: 1; } 50% { opacity: 0.15; } }`,
+        svgDraw: `@keyframes svgDraw { from { stroke-dashoffset: var(--path-length,1000); } to { stroke-dashoffset: 0; } }`,
+        svgShake: `@keyframes svgShake { 0%,100% { transform: translateX(0); } 10%,30%,50%,70%,90% { transform: translateX(-8px); } 20%,40%,60%,80% { transform: translateX(8px); } }`,
+        svgFloat: `@keyframes svgFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-15px); } }`,
+        svgLevitate: `@keyframes svgLevitate { 0%,100% { transform: translateY(0) scale(1); } 25% { transform: translateY(-12px) scale(1.02); } 50% { transform: translateY(-25px) scale(0.98); } 75% { transform: translateY(-12px) scale(1.01); } }`,
+        svgArc: `@keyframes svgArc { 0% { transform: translate(calc(var(--arc-offset-x,0px) + var(--arc-rx,80px) * -1), calc(var(--arc-offset-y,0px))); } 25% { transform: translate(calc(var(--arc-offset-x,0px) + var(--arc-rx,80px) * -0.7071), calc(var(--arc-offset-y,0px) + var(--arc-ry,80px) * -0.7071)); } 50% { transform: translate(calc(var(--arc-offset-x,0px)), calc(var(--arc-offset-y,0px) + var(--arc-ry,80px) * -1)); } 75% { transform: translate(calc(var(--arc-offset-x,0px) + var(--arc-rx,80px) * 0.7071), calc(var(--arc-offset-y,0px) + var(--arc-ry,80px) * -0.7071)); } 100% { transform: translate(calc(var(--arc-offset-x,0px) + var(--arc-rx,80px) * 1), calc(var(--arc-offset-y,0px))); } }`,
+        svgRadiate: `@keyframes svgRadiate { 0% { transform: translate(calc(var(--arc-offset-x,0px) + var(--arc-rx,80px) * -1), calc(var(--arc-offset-y,0px))); filter: drop-shadow(0 0 2px rgba(230,126,34,0.2)); } 25% { transform: translate(calc(var(--arc-offset-x,0px) + var(--arc-rx,80px) * -0.7071), calc(var(--arc-offset-y,0px) + var(--arc-ry,80px) * -0.7071)); filter: drop-shadow(0 0 8px rgba(230,126,34,0.4)); } 50% { transform: translate(calc(var(--arc-offset-x,0px)), calc(var(--arc-offset-y,0px) + var(--arc-ry,80px) * -1)); filter: drop-shadow(0 0 24px rgba(230,126,34,0.9)); } 75% { transform: translate(calc(var(--arc-offset-x,0px) + var(--arc-rx,80px) * 0.7071), calc(var(--arc-offset-y,0px) + var(--arc-ry,80px) * -0.7071)); filter: drop-shadow(0 0 8px rgba(230,126,34,0.4)); } 100% { transform: translate(calc(var(--arc-offset-x,0px) + var(--arc-rx,80px) * 1), calc(var(--arc-offset-y,0px))); filter: drop-shadow(0 0 2px rgba(230,126,34,0.2)); } }`,
+        svgSpin: `@keyframes svgSpin { 0% { transform: rotate(0deg) scale(1); } 50% { transform: rotate(180deg) scale(0.85); } 100% { transform: rotate(360deg) scale(1); } }`,
+        svgGlow: `@keyframes svgGlow { 0%,100% { filter: drop-shadow(0 0 4px rgba(108,92,231,0.3)); } 50% { filter: drop-shadow(0 0 24px rgba(108,92,231,0.9)); } }`,
+      };
+      if (kfs[name]) { embeddedStyle += kfs[name] + '\n'; }
+      return name;
+    }
+
     elements.forEach((el, i) => {
       const cfg = elementAnimations[i];
       if (!cfg || !cfg.presetId) return;
-      const preset = presets.find(p => p.id === cfg.presetId);
+      const activeIds = getAllActivePresets(cfg);
 
-    const isTranslateBased = ['slide', 'bounce', 'shake', 'float', 'gravity', 'levitate', 'arc', 'radiate'].includes(cfg.presetId);
-      const hasAngle = cfg.directionAngle && cfg.directionAngle !== 0;
+      // Build vars from applicable presets
+      let varsStr = '';
+      const center = getElementCenter(svg.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, g, text')[i]);
+      activeIds.forEach(id => {
+        if (id === 'oval') varsStr += `--oval-rx: ${cfg.ovalRx}px; --oval-ry: ${cfg.ovalRy}px; `;
+        if (isArcPreset(id)) {
+          varsStr += `--arc-rx: ${cfg.arcRx}px; --arc-ry: ${cfg.arcRy}px; `;
+          const pivotCx = cfg.pivotX !== null ? cfg.pivotX : center.x;
+          const pivotCy = cfg.pivotY !== null ? cfg.pivotY : center.y;
+          varsStr += `--arc-offset-x: ${(pivotCx - center.x)}px; --arc-offset-y: ${(pivotCy - center.y)}px; `;
+        }
+        if (id === 'draw') varsStr += 'stroke-dasharray: 1000; --path-length: 1000; ';
+      });
 
-      let animName;
-      if (isTranslateBased && hasAngle) {
-        const rad = cfg.directionAngle * Math.PI / 180;
-        const cos = Math.cos(rad);
-        const sin = Math.sin(rad);
-        const dirName = cfg.presetId + '_export_' + i;
-        animName = dirName;
-        let kf = '';
-        switch (cfg.presetId) {
-          case 'slide':
-            kf = `@keyframes ${dirName} { 0%,100% { transform: translate(${-80*cos}px,${-80*sin}px); } 50% { transform: translate(${80*cos}px,${80*sin}px); } }`;
-            break;
-          case 'bounce':
-            kf = `@keyframes ${dirName} { 0%,100% { transform: translate(0,0); } 50% { transform: translate(${20*cos}px,${20*sin}px); } }`;
-            break;
-          case 'shake':
-            kf = `@keyframes ${dirName} { 0%,100% { transform: translate(0,0); } 10%,30%,50%,70%,90% { transform: translate(${-8*cos}px,${-8*sin}px); } 20%,40%,60%,80% { transform: translate(${8*cos}px,${8*sin}px); } }`;
-            break;
-          case 'float':
-            kf = `@keyframes ${dirName} { 0%,100% { transform: translate(0,0); } 50% { transform: translate(${15*cos}px,${15*sin}px); } }`;
-            break;
-          case 'levitate':
-            kf = `@keyframes ${dirName} { 0%,100% { transform: translate(0,0); } 25% { transform: translate(${-12*cos}px,${-12*sin}px); } 50% { transform: translate(${-25*cos}px,${-25*sin}px); } 75% { transform: translate(${-12*cos}px,${-12*sin}px); } }`;
-            break;
-          case 'arc':
-            kf = `@keyframes ${dirName} { 0% { transform: translate(${-80*cos}px,${-80*sin}px); } 25% { transform: translate(${-40*cos}px,${-80*sin - 60}px); } 50% { transform: translate(0,${-80*sin - 80}px); } 75% { transform: translate(${40*cos}px,${-80*sin - 60}px); } 100% { transform: translate(${80*cos}px,${-80*sin}px); } }`;
-            break;
-          case 'radiate':
-            kf = `@keyframes ${dirName} { 0% { transform: translate(${-80*cos}px,${-80*sin}px); filter: drop-shadow(0 0 2px rgba(230,126,34,0.2)); } 25% { transform: translate(${-40*cos}px,${-80*sin - 60}px); filter: drop-shadow(0 0 8px rgba(230,126,34,0.4)); } 50% { transform: translate(0,${-80*sin - 80}px); filter: drop-shadow(0 0 24px rgba(230,126,34,0.9)); } 75% { transform: translate(${40*cos}px,${-80*sin - 60}px); filter: drop-shadow(0 0 8px rgba(230,126,34,0.4)); } 100% { transform: translate(${80*cos}px,${-80*sin}px); filter: drop-shadow(0 0 2px rgba(230,126,34,0.2)); } }`;
-            break;
-          case 'gravity':
-            kf = `@keyframes ${dirName} { 0% { transform: translate(${-100*cos}px,${-100*sin}px); } 30% { transform: translate(${80*cos}px,${80*sin}px); } 50% { transform: translate(${-40*cos}px,${-40*sin}px); } 70% { transform: translate(${30*cos}px,${30*sin}px); } 85% { transform: translate(${-10*cos}px,${-10*sin}px); } 100% { transform: translate(0,0); } }`;
-            break;
+      // Build comma-separated animation string
+      const animParts = activeIds.map(id => {
+        const isTB = isTranslateBased(id);
+        const hasAngle = cfg.directionAngle && cfg.directionAngle !== 0;
+        let aName;
+        if (isTB && hasAngle) {
+          const kf = getExportKeyframe(id, cfg.directionAngle);
+          if (kf && !embeddedStyle.includes(`${id}_export_${i}_${cfg.directionAngle}`)) embeddedStyle += kf + '\n';
+          aName = `${id}_export_${i}_${cfg.directionAngle}`;
+        } else {
+          aName = ensureExportKeyframe(id);
         }
-        if (!embeddedStyle.includes(dirName)) embeddedStyle += kf + '\n';
-      } else {
-        switch (cfg.presetId) {
-          case 'rotate': animName = 'svgRotate'; if (!embeddedStyle.includes('svgRotate')) { embeddedStyle += `@keyframes svgRotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }\n`; } break;
-          case 'wheel': animName = 'svgWheel'; if (!embeddedStyle.includes('svgWheel')) { embeddedStyle += `@keyframes svgWheel { 0% { transform: rotate(0deg); } 25% { transform: rotate(90deg); } 50% { transform: rotate(180deg); } 75% { transform: rotate(270deg); } 100% { transform: rotate(360deg); } }\n`; } break;
-          case 'pulse': animName = 'svgPulse'; if (!embeddedStyle.includes('svgPulse')) { embeddedStyle += `@keyframes svgPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.15); } }\n`; } break;
-          case 'bounce': animName = 'svgBounce'; if (!embeddedStyle.includes('svgBounce')) { embeddedStyle += `@keyframes svgBounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }\n`; } break;
-          case 'gravity': animName = 'svgGravity'; if (!embeddedStyle.includes('svgGravity')) { embeddedStyle += `@keyframes svgGravity { 0% { transform: translateY(-100px); } 30% { transform: translateY(80px); } 50% { transform: translateY(-40px); } 70% { transform: translateY(30px); } 85% { transform: translateY(-10px); } 100% { transform: translateY(0); } }\n`; } break;
-          case 'slide': animName = 'svgSlide'; if (!embeddedStyle.includes('svgSlide')) { embeddedStyle += `@keyframes svgSlide { 0%,100% { transform: translateX(-80px); } 50% { transform: translateX(80px); } }\n`; } break;
-          case 'oval': animName = 'svgOval'; if (!embeddedStyle.includes('svgOval')) { embeddedStyle += `@keyframes svgOval { 0% { transform: translate(0,0); } 25% { transform: translate(var(--oval-rx,80px),0); } 50% { transform: translate(0,var(--oval-ry,40px)); } 75% { transform: translate(calc(-1*var(--oval-rx,80px)),0); } 100% { transform: translate(0,0); } }\n`; } break;
-          case 'fade': animName = 'svgFade'; if (!embeddedStyle.includes('svgFade')) { embeddedStyle += `@keyframes svgFade { 0%,100% { opacity: 1; } 50% { opacity: 0.15; } }\n`; } break;
-          case 'draw': animName = 'svgDraw'; if (!embeddedStyle.includes('svgDraw')) { embeddedStyle += `@keyframes svgDraw { from { stroke-dashoffset: var(--path-length,1000); } to { stroke-dashoffset: 0; } }\n`; } break;
-          case 'shake': animName = 'svgShake'; if (!embeddedStyle.includes('svgShake')) { embeddedStyle += `@keyframes svgShake { 0%,100% { transform: translateX(0); } 10%,30%,50%,70%,90% { transform: translateX(-8px); } 20%,40%,60%,80% { transform: translateX(8px); } }\n`; } break;
-          case 'float': animName = 'svgFloat'; if (!embeddedStyle.includes('svgFloat')) { embeddedStyle += `@keyframes svgFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-15px); } }\n`; } break;
-          case 'levitate': animName = 'svgLevitate'; if (!embeddedStyle.includes('svgLevitate')) { embeddedStyle += `@keyframes svgLevitate { 0%,100% { transform: translateY(0) scale(1); } 25% { transform: translateY(-12px) scale(1.02); } 50% { transform: translateY(-25px) scale(0.98); } 75% { transform: translateY(-12px) scale(1.01); } }\n`; } break;
-          case 'arc': animName = 'svgArc'; if (!embeddedStyle.includes('svgArc')) { embeddedStyle += `@keyframes svgArc { 0% { transform: translate(calc(var(--arc-rx,80px) * -1),0); } 25% { transform: translate(calc(var(--arc-rx,80px) * -0.7071),calc(var(--arc-ry,80px) * -0.7071)); } 50% { transform: translate(0,calc(var(--arc-ry,80px) * -1)); } 75% { transform: translate(calc(var(--arc-rx,80px) * 0.7071),calc(var(--arc-ry,80px) * -0.7071)); } 100% { transform: translate(calc(var(--arc-rx,80px) * 1),0); }  }\n`; } break;
-          case 'radiate': animName = 'svgRadiate'; if (!embeddedStyle.includes('svgRadiate')) { embeddedStyle += `@keyframes svgRadiate { 0% { transform: translate(calc(var(--arc-rx,80px) * -1),0); filter: drop-shadow(0 0 2px rgba(230,126,34,0.2)); } 25% { transform: translate(calc(var(--arc-rx,80px) * -0.7071),calc(var(--arc-ry,80px) * -0.7071)); filter: drop-shadow(0 0 8px rgba(230,126,34,0.4)); } 50% { transform: translate(0,calc(var(--arc-ry,80px) * -1)); filter: drop-shadow(0 0 24px rgba(230,126,34,0.9)); } 75% { transform: translate(calc(var(--arc-rx,80px) * 0.7071),calc(var(--arc-ry,80px) * -0.7071)); filter: drop-shadow(0 0 8px rgba(230,126,34,0.4)); } 100% { transform: translate(calc(var(--arc-rx,80px) * 1),0); filter: drop-shadow(0 0 2px rgba(230,126,34,0.2)); } }\n`; } break;
-          case 'spin': animName = 'svgSpin'; if (!embeddedStyle.includes('svgSpin')) { embeddedStyle += `@keyframes svgSpin { 0% { transform: rotate(0deg) scale(1); } 50% { transform: rotate(180deg) scale(0.85); } 100% { transform: rotate(360deg) scale(1); } }\n`; } break;
-          case 'glow': animName = 'svgGlow'; if (!embeddedStyle.includes('svgGlow')) { embeddedStyle += `@keyframes svgGlow { 0%,100% { filter: drop-shadow(0 0 4px rgba(108,92,231,0.3)); } 50% { filter: drop-shadow(0 0 24px rgba(108,92,231,0.9)); } }\n`; } break;
-        }
-      }
+        const p = presets.find(pr => pr.id === id);
+        const e = p ? p.easing : 'ease-in-out';
+        return `${aName} ${cfg.speed}s ${e} ${cfg.iter} ${cfg.dir}`;
+      });
+
+      const easing = animParts.length > 0 ? 'ease-in-out' : '';
 
       el.setAttribute('data-anim-index', i);
 
-      // Use absolute center in SVG coords for stable rotation pivot
       let originCx = 100, originCy = 100;
       const origEl = svg.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, g, text')[i];
       if (origEl) {
@@ -1716,11 +1866,7 @@
         } catch (e) {}
       }
 
-      const easing = preset ? preset.easing : 'ease-in-out';
-      const ovalVars = cfg.presetId === 'oval' ? `--oval-rx: ${cfg.ovalRx}px; --oval-ry: ${cfg.ovalRy}px;` : '';
-      const arcVars = (cfg.presetId === 'arc' || cfg.presetId === 'radiate') ? `--arc-rx: ${cfg.arcRx}px; --arc-ry: ${cfg.arcRy}px;` : '';
-      const drawExtra = cfg.presetId === 'draw' ? ' stroke-dasharray: 1000; --path-length: 1000;' : '';
-      elementStyles += `[data-anim-index="${i}"] { transform-origin: ${originCx}px ${originCy}px; transform-box: view-box; ${ovalVars}${arcVars} animation: ${animName} ${cfg.speed}s ${easing} ${cfg.iter} ${cfg.dir}; animation-delay: ${cfg.delay}s;${drawExtra} }\n`;
+      elementStyles += `[data-anim-index="${i}"] { transform-origin: ${originCx}px ${originCy}px; transform-box: view-box; ${varsStr}animation: ${animParts.join(', ')}; animation-delay: ${cfg.delay}s; }\n`;
     });
 
     const styleEl = document.createElementNS('http://www.w3.org/2000/svg', 'style');
