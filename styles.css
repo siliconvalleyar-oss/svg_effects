@@ -939,6 +939,31 @@ input[type="range"]::-webkit-slider-thumb {
   color: #fff;
 }
 
+/* ===== TRAJECTORIES ===== */
+#trajectory-overlay { pointer-events: none; z-index: 5; }
+#trajectory-overlay .traj-line { fill:none; stroke:#f39c12; stroke-width:2; stroke-dasharray:6,4; opacity:0.7; pointer-events:stroke; cursor:crosshair; }
+#trajectory-overlay .traj-point { fill:#f39c12; stroke:#fff; stroke-width:1.5; cursor:move; pointer-events:auto; }
+#trajectory-overlay .traj-point:hover { fill:#e67e22; }
+#trajectory-overlay .traj-point-label { fill:#fff; font-size:9px; text-anchor:middle; dominant-baseline:central; pointer-events:none; }
+
+.trajectory-list { display:flex; flex-direction:column; gap:4px; margin-top:6px; }
+.traj-item {
+  display:flex; align-items:center; gap:6px;
+  padding:6px 8px;
+  background:var(--surface2);
+  border:1px solid var(--border);
+  border-radius:4px;
+  font-size:10px;
+  cursor:pointer;
+  transition:all 0.15s;
+}
+.traj-item:hover { border-color:var(--accent); }
+.traj-item.active { border-color:var(--accent); background:color-mix(in srgb, var(--accent) 15%, var(--surface2)); }
+.traj-item .traj-color { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+.traj-item .traj-name { flex:1; color:var(--text); }
+.traj-del-btn { width:16px; height:16px; border:none; background:transparent; color:var(--text-dim); cursor:pointer; font-size:10px; border-radius:3px; }
+.traj-del-btn:hover { color:var(--danger); background:rgba(231,76,60,0.1); }
+
 /* ===== PIVOT MARKER ===== */
 #pivot-marker {
   position: fixed;

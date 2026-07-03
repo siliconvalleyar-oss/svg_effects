@@ -215,6 +215,7 @@
     const svg = $('#preview-area svg');
     if (svg) svg.setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.w} ${vb.h}`);
     updateBoundary();
+    syncTrajectoryOverlayViewBox();
   }
 
   function stopBoundaryResize() {
@@ -311,6 +312,10 @@
     selectedGroupId = null;
     isMultiSelectMode = false;
     nextGroupId = 1;
+    trajectories = {};
+    nextTrajId = 1;
+    isTrajectoryMode = false;
+    selectedTrajectoryId = null;
     undoStack = [];
     undoIndex = -1;
     updateUndoButtons();
@@ -498,7 +503,7 @@
   });
 
   function getDefaultElementConfig() {
-    return { presetId: null, speed: 16, delay: 0, iter: 'infinite', dir: 'normal', ovalRx: 80, ovalRy: 40, ovalAngle: 0, arcRx: 80, arcRy: 80, directionAngle: 0, pivotX: null, pivotY: null, extraPresets: [] };
+    return { presetId: null, speed: 16, delay: 0, iter: 'infinite', dir: 'normal', ovalRx: 80, ovalRy: 40, ovalAngle: 0, arcRx: 80, arcRy: 80, directionAngle: 0, pivotX: null, pivotY: null, extraPresets: [], trajectoryId: null };
   }
 
   function loadSvgString(svgStr) {
@@ -527,6 +532,8 @@
     $('#mode-section').style.display = '';
     $('#slides-section').classList.add('visible');
     $('#elements-panel').classList.add('visible');
+    $('#trajectory-section').style.display = '';
+    renderTrajectories();
 
     exitPiecesMode();
     zoomLevel = 1;
@@ -539,6 +546,12 @@
     selectedGroupElements = [];
     selectedGroupId = null;
     nextGroupId = 1;
+    trajectories = {};
+    nextTrajId = 1;
+    isTrajectoryMode = false;
+    selectedTrajectoryId = null;
+    const oldOverlay = $('#preview-area #trajectory-overlay');
+    if (oldOverlay) oldOverlay.remove();
     renderElements();
   }
 
@@ -977,13 +990,17 @@
     }
 
     const translateBased = ['slide', 'bounce', 'shake', 'float', 'gravity', 'levitate', 'arc', 'radiate'];
-    const showDirection = hasPreset && translateBased.includes(cfg.presetId);
+    const showDirection = !!cfg.presetId && translateBased.includes(cfg.presetId);
     $('#direction-controls').style.display = showDirection ? '' : 'none';
     if (showDirection) {
       $('#direction-slider').value = cfg.directionAngle;
       $('#direction-value').textContent = cfg.directionAngle + '°';
       updateDirectionArrow(cfg.directionAngle);
     }
+
+    // Update trajectory assignment dropdown
+    const trajSelect = $('#trajectory-select');
+    if (trajSelect) trajSelect.value = cfg.trajectoryId || '';
   }
 
   function getConfigForSelected() {
@@ -1150,6 +1167,25 @@
       const animName = getAnimationName(id, cfg.directionAngle);
       parts.push(`${animName} ${cfg.speed}s ${e} ${cfg.iter} ${cfg.dir}`);
     });
+
+    // Add trajectory animation if assigned
+    if (cfg.trajectoryId && trajectories[cfg.trajectoryId]) {
+      const kfResult = getTrajectoryKeyframes(cfg.trajectoryId, center.x, center.y, index);
+      if (kfResult) {
+        // Inject keyframes into document
+        let styleEl = $('#preview-area svg style#traj-keyframes');
+        if (!styleEl) {
+          styleEl = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+          styleEl.id = 'traj-keyframes';
+          $('#preview-area svg').insertBefore(styleEl, $('#preview-area svg').firstChild);
+        }
+        if (!styleEl.textContent.includes(kfResult.name)) {
+          styleEl.textContent += '\n' + kfResult.css;
+        }
+        parts.push(`${kfResult.name} ${cfg.speed}s linear ${cfg.iter} ${cfg.dir}`);
+      }
+    }
+
     el.style.animation = parts.join(', ');
     el.style.animationDelay = cfg.delay + 's';
     el.style.animationPlayState = animationPlaying ? 'running' : 'paused';
@@ -1470,6 +1506,8 @@
     restoreAnimations();
     const marker = $('#pivot-marker');
     if (marker) marker.style.display = 'none';
+    const trajOverlay = $('#trajectory-overlay');
+    if (trajOverlay && !isTrajectoryMode) trajOverlay.style.display = 'none';
     setAllAnimationsPlayState(animationPlaying ? 'running' : 'paused');
     selectedElement = null;
   }
@@ -1641,6 +1679,250 @@
     if (cfg.presetId) presets.push(cfg.presetId);
     if (cfg.extraPresets) cfg.extraPresets.forEach(id => { if (!presets.includes(id)) presets.push(id); });
     return presets;
+  }
+
+  // ===== TRAJECTORY SYSTEM =====
+
+  let trajectories = {};
+  let nextTrajId = 1;
+  let isTrajectoryMode = false;
+  let selectedTrajectoryId = null;
+  let trajectoryPointDrag = null;
+  const trajColors = ['#f39c12','#e74c3c','#2ecc71','#3498db','#9b59b6','#1abc9c','#e67e22','#6c5ce7'];
+
+  function ensureTrajectoryOverlay() {
+    const area = $('#preview-area');
+    let svg = area ? area.querySelector('#trajectory-overlay') : null;
+    if (!svg && area) {
+      svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.id = 'trajectory-overlay';
+      svg.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;overflow:visible';
+      svg.setAttribute('viewBox', '0 0 200 200');
+      svg.innerHTML = '<style>.traj-line{fill:none;stroke:#f39c12;stroke-width:2;stroke-dasharray:6,4;opacity:0.7;pointer-events:stroke;cursor:crosshair}.traj-point{fill:#f39c12;stroke:#fff;stroke-width:1.5;cursor:move;pointer-events:auto}.traj-point:hover{fill:#e67e22}.traj-point-label{fill:#fff;font-size:9px;text-anchor:middle;dominant-baseline:central;pointer-events:none}</style>';
+      area.appendChild(svg);
+    }
+    return svg;
+  }
+
+  function syncTrajectoryOverlayViewBox() {
+    const svg = $('#preview-area svg');
+    const overlay = $('#trajectory-overlay');
+    if (!svg || !overlay) return;
+    const vb = svg.getAttribute('viewBox');
+    if (vb) overlay.setAttribute('viewBox', vb);
+  }
+
+  function renderTrajectoryOverlay() {
+    const svg = ensureTrajectoryOverlay();
+    if (!svg) return;
+    svg.innerHTML = '<style>.traj-line{fill:none;stroke:#f39c12;stroke-width:2;stroke-dasharray:6,4;opacity:0.7;pointer-events:stroke;cursor:crosshair}.traj-point{fill:#f39c12;stroke:#fff;stroke-width:1.5;cursor:move;pointer-events:auto}.traj-point:hover{fill:#e67e22}.traj-point-label{fill:#fff;font-size:9px;text-anchor:middle;dominant-baseline:central;pointer-events:none}</style>';
+    syncTrajectoryOverlayViewBox();
+
+    if (!isTrajectoryMode) { svg.style.display = 'none'; return; }
+    svg.style.display = '';
+
+    const activeTraj = trajectories[selectedTrajectoryId];
+    if (!activeTraj || !activeTraj.points || activeTraj.points.length < 1) return;
+
+    const pts = activeTraj.points;
+    const ns = 'http://www.w3.org/2000/svg';
+
+    // Draw polyline
+    if (pts.length >= 2) {
+      const line = document.createElementNS(ns, 'polyline');
+      line.setAttribute('points', pts.map(p => `${p.x},${p.y}`).join(' '));
+      line.classList.add('traj-line');
+      line.addEventListener('click', e => {
+        // Get click position in viewBox coords
+        const rect = svg.getBoundingClientRect();
+        const vb = svg.getAttribute('viewBox').split(/\s+/).map(Number);
+        const vx = (e.clientX - rect.left) / rect.width * vb[2] + vb[0];
+        const vy = (e.clientY - rect.top) / rect.height * vb[3] + vb[1];
+        // Insert point between the two nearest points
+        let bestIdx = 0, bestDist = Infinity;
+        for (let i = 0; i < pts.length - 1; i++) {
+          const midX = (pts[i].x + pts[i+1].x) / 2;
+          const midY = (pts[i].y + pts[i+1].y) / 2;
+          const d = Math.hypot(vx - midX, vy - midY);
+          if (d < bestDist) { bestDist = d; bestIdx = i + 1; }
+        }
+        activeTraj.points.splice(bestIdx, 0, { x: vx, y: vy });
+        renderTrajectoryOverlay();
+        renderTrajectories();
+      });
+      svg.appendChild(line);
+    }
+
+    // Draw points
+    pts.forEach((p, i) => {
+      const circle = document.createElementNS(ns, 'circle');
+      circle.setAttribute('cx', p.x);
+      circle.setAttribute('cy', p.y);
+      circle.setAttribute('r', '6');
+      circle.classList.add('traj-point');
+      circle.dataset.pointIndex = i;
+      circle.addEventListener('pointerdown', e => {
+        e.stopPropagation();
+        e.preventDefault();
+        const svgR = svg.getBoundingClientRect();
+        const vbA = svg.getAttribute('viewBox').split(/\s+/).map(Number);
+        trajectoryPointDrag = { trajId: selectedTrajectoryId, pointIdx: i, svgRect: svgR, vbX: vbA[0], vbY: vbA[1], vbW: vbA[2], vbH: vbA[3], lastX: e.clientX, lastY: e.clientY };
+        document.addEventListener('pointermove', onTrajPointMove);
+        document.addEventListener('pointerup', onTrajPointUp);
+      });
+      svg.appendChild(circle);
+
+      // Right-click to remove point
+      circle.addEventListener('contextmenu', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        const traj = trajectories[selectedTrajectoryId];
+        if (traj && traj.points.length > 1) {
+          traj.points.splice(i, 1);
+          renderTrajectoryOverlay();
+          renderTrajectories();
+        }
+      });
+
+      const label = document.createElementNS(ns, 'text');
+      label.setAttribute('x', p.x + 10);
+      label.setAttribute('y', p.y - 10);
+      label.classList.add('traj-point-label');
+      label.textContent = (i + 1) + (i === 0 ? ' (inicio)' : i === pts.length - 1 ? ' (fin)' : '');
+      svg.appendChild(label);
+    });
+
+    // Show start direction indicator (arrow from first point)
+    if (pts.length >= 2) {
+      const dx = pts[1].x - pts[0].x;
+      const dy = pts[1].y - pts[0].y;
+      const len = Math.hypot(dx, dy) || 1;
+      const arrLen = 12;
+      const nx = dx / len, ny = dy / len;
+      const arrow = document.createElementNS(ns, 'polygon');
+      const tipX = pts[0].x + nx * arrLen;
+      const tipY = pts[0].y + ny * arrLen;
+      const spread = 5;
+      arrow.setAttribute('points', `${pts[0].x},${pts[0].y} ${tipX - ny * spread},${tipY + nx * spread} ${tipX + ny * spread},${tipY - nx * spread}`);
+      arrow.style.fill = '#f39c12';
+      arrow.style.opacity = '0.6';
+      svg.appendChild(arrow);
+    }
+  }
+
+  function onTrajPointMove(e) {
+    if (!trajectoryPointDrag) return;
+    e.preventDefault();
+    const d = trajectoryPointDrag;
+    const dx = (e.clientX - d.lastX) * d.vbW / d.svgRect.width;
+    const dy = (e.clientY - d.lastY) * d.vbH / d.svgRect.height;
+    const traj = trajectories[d.trajId];
+    if (!traj || !traj.points[d.pointIdx]) return;
+    traj.points[d.pointIdx].x += dx;
+    traj.points[d.pointIdx].y += dy;
+    d.lastX = e.clientX;
+    d.lastY = e.clientY;
+    renderTrajectoryOverlay();
+  }
+
+  function onTrajPointUp() {
+    if (!trajectoryPointDrag) return;
+    document.removeEventListener('pointermove', onTrajPointMove);
+    document.removeEventListener('pointerup', onTrajPointUp);
+    pushHistory();
+    trajectoryPointDrag = null;
+  }
+
+  function renderTrajectories() {
+    const list = $('#trajectory-list');
+    if (!list) return;
+    const assignRow = $('#trajectory-assign-row');
+    const select = $('#trajectory-select');
+    const ids = Object.keys(trajectories);
+
+    // Render trajectory list
+    list.innerHTML = '';
+    if (ids.length === 0) {
+      list.innerHTML = '<div style="font-size:10px;color:var(--text-dim);padding:4px">Sin trayectorias</div>';
+    } else {
+      ids.forEach(id => {
+        const t = trajectories[id];
+        const item = document.createElement('div');
+        item.className = 'traj-item' + (selectedTrajectoryId === id ? ' active' : '');
+        const color = trajColors[(parseInt(id.replace('traj_','')) - 1) % trajColors.length];
+        item.innerHTML = `<span class="traj-color" style="background:${color}"></span><span class="traj-name">${t.name} (${t.points.length} pts)</span><button class="traj-del-btn" title="Eliminar">&times;</button>`;
+        item.querySelector('.traj-del-btn').addEventListener('click', e => { e.stopPropagation(); deleteTrajectory(id); });
+        item.addEventListener('click', () => {
+          if (selectedTrajectoryId === id && isTrajectoryMode) {
+            selectedTrajectoryId = null;
+            isTrajectoryMode = false;
+          } else {
+            selectedTrajectoryId = id;
+            isTrajectoryMode = true;
+          }
+          renderTrajectoryOverlay();
+          renderTrajectories();
+        });
+        list.appendChild(item);
+      });
+    }
+
+    if (window._updateTrajToggle) window._updateTrajToggle();
+
+    // Update assignment dropdown
+    if (select) {
+      const currentVal = select.value;
+      select.innerHTML = '<option value="">— Ninguna —</option>';
+      ids.forEach(id => {
+        const opt = document.createElement('option');
+        opt.value = id;
+        opt.textContent = trajectories[id].name;
+        select.appendChild(opt);
+      });
+      if (currentVal && ids.includes(currentVal)) select.value = currentVal;
+      assignRow.style.display = ids.length > 0 ? '' : 'none';
+    }
+  }
+
+  function addTrajectory(name) {
+    const n = name || 'Trayectoria ' + nextTrajId;
+    const id = 'traj_' + nextTrajId++;
+    trajectories[id] = { name: n, points: [{ x: 50, y: 100 }, { x: 150, y: 100 }] };
+    selectedTrajectoryId = id;
+    isTrajectoryMode = true;
+    pushHistory();
+    renderTrajectoryOverlay();
+    renderTrajectories();
+    return id;
+  }
+
+  function deleteTrajectory(id) {
+    if (!trajectories[id]) return;
+    pushHistory();
+    delete trajectories[id];
+    if (selectedTrajectoryId === id) { selectedTrajectoryId = null; isTrajectoryMode = false; }
+    // Remove assignment from elements
+    Object.keys(elementAnimations).forEach(idx => {
+      if (elementAnimations[idx].trajectoryId === id) elementAnimations[idx].trajectoryId = null;
+    });
+    renderTrajectoryOverlay();
+    renderTrajectories();
+  }
+
+  function getTrajectoryKeyframes(trajId, centerX, centerY, elemIdx) {
+    const traj = trajectories[trajId];
+    if (!traj || traj.points.length < 2) return null;
+    const pts = traj.points;
+    const name = 'traj_' + trajId + '_el' + elemIdx;
+    let kf = `@keyframes ${name} { `;
+    for (let i = 0; i < pts.length; i++) {
+      const pct = i / (pts.length - 1) * 100;
+      const rx = pts[i].x - centerX;
+      const ry = pts[i].y - centerY;
+      kf += `${Math.round(pct)}% { transform: translate(${rx}px, ${ry}px); } `;
+    }
+    kf += '}';
+    return { name, css: kf };
   }
 
   // ===== CONTEXT MENU =====
@@ -1848,7 +2130,7 @@
 
     elements.forEach((el, i) => {
       const cfg = elementAnimations[i];
-      if (!cfg || !cfg.presetId) return;
+      if (!cfg || (!cfg.presetId && !cfg.trajectoryId)) return;
       const activeIds = getAllActivePresets(cfg);
 
       // Build vars from applicable presets
@@ -1882,7 +2164,16 @@
         return `${aName} ${cfg.speed}s ${e} ${cfg.iter} ${cfg.dir}`;
       });
 
-      const easing = animParts.length > 0 ? 'ease-in-out' : '';
+      // Add trajectory animation to export
+      if (cfg.trajectoryId && trajectories[cfg.trajectoryId]) {
+        const kfResult = getTrajectoryKeyframes(cfg.trajectoryId, center.x, center.y, i);
+        if (kfResult && !embeddedStyle.includes(kfResult.name)) {
+          embeddedStyle += kfResult.css + '\n';
+        }
+        if (kfResult) {
+          animParts.push(`${kfResult.name} ${cfg.speed}s linear ${cfg.iter} ${cfg.dir}`);
+        }
+      }
 
       el.setAttribute('data-anim-index', i);
 
@@ -2040,6 +2331,65 @@
 
   // Boundary toggle
   $('#boundary-toggle').addEventListener('click', toggleBoundary);
+
+  // Trajectory system init
+  function setupTrajectoryUI() {
+    // Add trajectory button
+    const section = $('#trajectory-section');
+    if (section && !section.querySelector('#add-trajectory-btn')) {
+      const btn = document.createElement('button');
+      btn.className = 'main-btn secondary';
+      btn.id = 'add-trajectory-btn';
+      btn.style.cssText = 'margin-top:6px;width:100%;font-size:10px';
+      btn.textContent = '+ Nueva trayectoria';
+      btn.addEventListener('click', () => {
+        const name = prompt('Nombre de la trayectoria:', 'Trayectoria ' + nextTrajId);
+        if (name) addTrajectory(name);
+      });
+      section.appendChild(btn);
+    }
+
+    // Mode toggle button
+    const toggle = $('#trajectory-mode-toggle');
+    if (toggle) {
+      function updateTrajToggle() {
+        toggle.classList.toggle('active', isTrajectoryMode && !!trajectories[selectedTrajectoryId]);
+        toggle.textContent = isTrajectoryMode ? 'Cerrar trayectorias' : 'Editar trayectorias';
+      }
+      toggle.addEventListener('click', () => {
+        if (isTrajectoryMode) {
+          isTrajectoryMode = false;
+          selectedTrajectoryId = null;
+        } else {
+          const ids = Object.keys(trajectories);
+          if (ids.length > 0) {
+            selectedTrajectoryId = ids[0];
+            isTrajectoryMode = true;
+          }
+        }
+        updateTrajToggle();
+        renderTrajectoryOverlay();
+        renderTrajectories();
+      });
+      // Expose update function so renderTrajectories can call it
+      window._updateTrajToggle = updateTrajToggle;
+    }
+
+    // Assign trajectory dropdown
+    const select = $('#trajectory-select');
+    if (select) {
+      select.addEventListener('change', () => {
+        if (selectedElementIndex === null) return;
+        const cfg = elementAnimations[selectedElementIndex];
+        if (!cfg) return;
+        cfg.trajectoryId = select.value || null;
+        pushHistory();
+        applyOneAnimation(selectedElementIndex);
+        renderElements();
+      });
+    }
+  }
+  setupTrajectoryUI();
 
   // Background image upload
   $('#bg-upload-btn').addEventListener('click', () => $('#bg-file-input').click());
