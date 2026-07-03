@@ -498,7 +498,7 @@
   });
 
   function getDefaultElementConfig() {
-    return { presetId: null, speed: 16, delay: 0, iter: 'infinite', dir: 'normal', ovalRx: 80, ovalRy: 40, ovalAngle: 0, directionAngle: 0 };
+    return { presetId: null, speed: 16, delay: 0, iter: 'infinite', dir: 'normal', ovalRx: 80, ovalRy: 40, ovalAngle: 0, arcRx: 80, arcRy: 80, directionAngle: 0 };
   }
 
   function loadSvgString(svgStr) {
@@ -849,8 +849,9 @@
         $('#delay-slider').value = group.config.delay;
         updateDelayDisplay(group.elements[0]);
         const translateBased = ['slide', 'bounce', 'shake', 'float', 'gravity', 'levitate', 'arc', 'radiate'];
-        $('#direction-controls').style.display = translateBased.includes(group.config.presetId) ? '' : 'none';
         $('#oval-controls').style.display = group.config.presetId === 'oval' ? '' : 'none';
+        $('#arc-controls').style.display = (group.config.presetId === 'arc' || group.config.presetId === 'radiate') ? '' : 'none';
+        $('#direction-controls').style.display = translateBased.includes(group.config.presetId) ? '' : 'none';
       }
     }
 
@@ -920,7 +921,9 @@
     $$('#iter-group .toggle-btn').forEach(b => b.classList.toggle('active', b.dataset.val === cfg.iter));
     $$('#dir-group .toggle-btn').forEach(b => b.classList.toggle('active', b.dataset.val === cfg.dir));
 
+    const arcPresets = ['arc', 'radiate'];
     $('#oval-controls').style.display = cfg.presetId === 'oval' ? '' : 'none';
+    $('#arc-controls').style.display = arcPresets.includes(cfg.presetId) ? '' : 'none';
     if (cfg.presetId === 'oval') {
       $('#oval-rx').value = cfg.ovalRx;
       $('#oval-rx-val').textContent = cfg.ovalRx + 'px';
@@ -928,6 +931,12 @@
       $('#oval-ry-val').textContent = cfg.ovalRy + 'px';
       $('#oval-angle').value = cfg.ovalAngle;
       $('#oval-angle-val').textContent = cfg.ovalAngle + 'deg';
+    }
+    if (arcPresets.includes(cfg.presetId)) {
+      $('#arc-rx').value = cfg.arcRx;
+      $('#arc-rx-val').textContent = cfg.arcRx + 'px';
+      $('#arc-ry').value = cfg.arcRy;
+      $('#arc-ry-val').textContent = cfg.arcRy + 'px';
     }
 
     const translateBased = ['slide', 'bounce', 'shake', 'float', 'gravity', 'levitate', 'arc', 'radiate'];
@@ -1031,10 +1040,10 @@
         kf = `@keyframes ${name} { 0%,100% { transform: translate(0,0); } 25% { transform: translate(${-12*cos}px,${-12*sin}px); } 50% { transform: translate(${-25*cos}px,${-25*sin}px); } 75% { transform: translate(${-12*cos}px,${-12*sin}px); } }`;
         break;
       case 'arc':
-        kf = `@keyframes ${name} { 0% { transform: translate(${-80*cos}px,${-80*sin}px); } 25% { transform: translate(${-40*cos}px,${-80*sin - 60}px); } 50% { transform: translate(0,${-80*sin - 80}px); } 75% { transform: translate(${40*cos}px,${-80*sin - 60}px); } 100% { transform: translate(${80*cos}px,${-80*sin}px); } }`;
+        kf = `@keyframes ${name} { 0% { transform: translate(calc(var(--arc-rx,80px) * ${-cos}), calc(var(--arc-rx,80px) * ${-sin})); } 25% { transform: translate(calc(var(--arc-rx,80px) * ${-0.7071*cos} + var(--arc-ry,80px) * ${0.7071*sin}), calc(var(--arc-rx,80px) * ${-0.7071*sin} + var(--arc-ry,80px) * ${-0.7071*cos})); } 50% { transform: translate(calc(var(--arc-ry,80px) * ${sin}), calc(var(--arc-ry,80px) * ${-cos})); } 75% { transform: translate(calc(var(--arc-rx,80px) * ${0.7071*cos} + var(--arc-ry,80px) * ${0.7071*sin}), calc(var(--arc-rx,80px) * ${0.7071*sin} + var(--arc-ry,80px) * ${-0.7071*cos})); } 100% { transform: translate(calc(var(--arc-rx,80px) * ${cos}), calc(var(--arc-rx,80px) * ${sin})); } }`;
         break;
       case 'radiate':
-        kf = `@keyframes ${name} { 0% { transform: translate(${-80*cos}px,${-80*sin}px); filter: drop-shadow(0 0 2px rgba(230,126,34,0.2)); } 25% { transform: translate(${-40*cos}px,${-80*sin - 60}px); filter: drop-shadow(0 0 8px rgba(230,126,34,0.4)); } 50% { transform: translate(0,${-80*sin - 80}px); filter: drop-shadow(0 0 24px rgba(230,126,34,0.9)); } 75% { transform: translate(${40*cos}px,${-80*sin - 60}px); filter: drop-shadow(0 0 8px rgba(230,126,34,0.4)); } 100% { transform: translate(${80*cos}px,${-80*sin}px); filter: drop-shadow(0 0 2px rgba(230,126,34,0.2)); } }`;
+        kf = `@keyframes ${name} { 0% { transform: translate(calc(var(--arc-rx,80px) * ${-cos}), calc(var(--arc-rx,80px) * ${-sin})); filter: drop-shadow(0 0 2px rgba(230,126,34,0.2)); } 25% { transform: translate(calc(var(--arc-rx,80px) * ${-0.7071*cos} + var(--arc-ry,80px) * ${0.7071*sin}), calc(var(--arc-rx,80px) * ${-0.7071*sin} + var(--arc-ry,80px) * ${-0.7071*cos})); filter: drop-shadow(0 0 8px rgba(230,126,34,0.4)); } 50% { transform: translate(calc(var(--arc-ry,80px) * ${sin}), calc(var(--arc-ry,80px) * ${-cos})); filter: drop-shadow(0 0 24px rgba(230,126,34,0.9)); } 75% { transform: translate(calc(var(--arc-rx,80px) * ${0.7071*cos} + var(--arc-ry,80px) * ${0.7071*sin}), calc(var(--arc-rx,80px) * ${0.7071*sin} + var(--arc-ry,80px) * ${-0.7071*cos})); filter: drop-shadow(0 0 8px rgba(230,126,34,0.4)); } 100% { transform: translate(calc(var(--arc-rx,80px) * ${cos}), calc(var(--arc-rx,80px) * ${sin})); filter: drop-shadow(0 0 2px rgba(230,126,34,0.2)); } }`;
         break;
       case 'gravity':
         kf = `@keyframes ${name} { 0% { transform: translate(${-100*cos}px,${-100*sin}px); } 30% { transform: translate(${80*cos}px,${80*sin}px); } 50% { transform: translate(${-40*cos}px,${-40*sin}px); } 70% { transform: translate(${30*cos}px,${30*sin}px); } 85% { transform: translate(${-10*cos}px,${-10*sin}px); } 100% { transform: translate(0,0); } }`;
@@ -1110,6 +1119,11 @@
       el.style.setProperty('--oval-ry', cfg.ovalRy + 'px');
     }
 
+    if (cfg.presetId === 'arc' || cfg.presetId === 'radiate') {
+      el.style.setProperty('--arc-rx', cfg.arcRx + 'px');
+      el.style.setProperty('--arc-ry', cfg.arcRy + 'px');
+    }
+
     if (cfg.presetId === 'draw') {
       const length = el.getTotalLength ? el.getTotalLength() : 1000;
       el.style.strokeDasharray = length;
@@ -1159,6 +1173,7 @@
     $('#speed-slider').value = cfg.speed;
     updateSpeedDisplay(selectedElementIndex);
     $('#oval-controls').style.display = id === 'oval' ? '' : 'none';
+    $('#arc-controls').style.display = (id === 'arc' || id === 'radiate') ? '' : 'none';
     const translateBased = ['slide', 'bounce', 'shake', 'float', 'gravity', 'levitate', 'arc', 'radiate'];
     $('#direction-controls').style.display = translateBased.includes(id) ? '' : 'none';
 
@@ -1298,6 +1313,24 @@
     applyOneAnimation(selectedElementIndex);
   });
   $('#oval-angle').addEventListener('change', saveSliderHistory);
+
+  // Arc controls
+  $('#arc-rx').addEventListener('input', e => {
+    const cfg = getConfigForSelected();
+    if (!cfg) return;
+    cfg.arcRx = parseInt(e.target.value);
+    $('#arc-rx-val').textContent = cfg.arcRx + 'px';
+    applyOneAnimation(selectedElementIndex);
+  });
+  $('#arc-rx').addEventListener('change', saveSliderHistory);
+  $('#arc-ry').addEventListener('input', e => {
+    const cfg = getConfigForSelected();
+    if (!cfg) return;
+    cfg.arcRy = parseInt(e.target.value);
+    $('#arc-ry-val').textContent = cfg.arcRy + 'px';
+    applyOneAnimation(selectedElementIndex);
+  });
+  $('#arc-ry').addEventListener('change', saveSliderHistory);
 
   // Pieces mode
   $('#mode-toggle').addEventListener('click', () => {
@@ -1483,8 +1516,8 @@
           case 'shake': animName = 'svgShake'; if (!embeddedStyle.includes('svgShake')) { embeddedStyle += `@keyframes svgShake { 0%,100% { transform: translateX(0); } 10%,30%,50%,70%,90% { transform: translateX(-8px); } 20%,40%,60%,80% { transform: translateX(8px); } }\n`; } break;
           case 'float': animName = 'svgFloat'; if (!embeddedStyle.includes('svgFloat')) { embeddedStyle += `@keyframes svgFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-15px); } }\n`; } break;
           case 'levitate': animName = 'svgLevitate'; if (!embeddedStyle.includes('svgLevitate')) { embeddedStyle += `@keyframes svgLevitate { 0%,100% { transform: translateY(0) scale(1); } 25% { transform: translateY(-12px) scale(1.02); } 50% { transform: translateY(-25px) scale(0.98); } 75% { transform: translateY(-12px) scale(1.01); } }\n`; } break;
-          case 'arc': animName = 'svgArc'; if (!embeddedStyle.includes('svgArc')) { embeddedStyle += `@keyframes svgArc { 0% { transform: translate(-80px,30px); } 25% { transform: translate(-40px,-30px); } 50% { transform: translate(0,-50px); } 75% { transform: translate(40px,-30px); } 100% { transform: translate(80px,30px); } }\n`; } break;
-          case 'radiate': animName = 'svgRadiate'; if (!embeddedStyle.includes('svgRadiate')) { embeddedStyle += `@keyframes svgRadiate { 0% { transform: translate(-80px,30px); filter: drop-shadow(0 0 2px rgba(230,126,34,0.2)); } 25% { transform: translate(-40px,-30px); filter: drop-shadow(0 0 8px rgba(230,126,34,0.4)); } 50% { transform: translate(0,-50px); filter: drop-shadow(0 0 24px rgba(230,126,34,0.9)); } 75% { transform: translate(40px,-30px); filter: drop-shadow(0 0 8px rgba(230,126,34,0.4)); } 100% { transform: translate(80px,30px); filter: drop-shadow(0 0 2px rgba(230,126,34,0.2)); } }\n`; } break;
+          case 'arc': animName = 'svgArc'; if (!embeddedStyle.includes('svgArc')) { embeddedStyle += `@keyframes svgArc { 0% { transform: translate(calc(var(--arc-rx,80px) * -1),0); } 25% { transform: translate(calc(var(--arc-rx,80px) * -0.7071),calc(var(--arc-ry,80px) * -0.7071)); } 50% { transform: translate(0,calc(var(--arc-ry,80px) * -1)); } 75% { transform: translate(calc(var(--arc-rx,80px) * 0.7071),calc(var(--arc-ry,80px) * -0.7071)); } 100% { transform: translate(calc(var(--arc-rx,80px) * 1),0); }  }\n`; } break;
+          case 'radiate': animName = 'svgRadiate'; if (!embeddedStyle.includes('svgRadiate')) { embeddedStyle += `@keyframes svgRadiate { 0% { transform: translate(calc(var(--arc-rx,80px) * -1),0); filter: drop-shadow(0 0 2px rgba(230,126,34,0.2)); } 25% { transform: translate(calc(var(--arc-rx,80px) * -0.7071),calc(var(--arc-ry,80px) * -0.7071)); filter: drop-shadow(0 0 8px rgba(230,126,34,0.4)); } 50% { transform: translate(0,calc(var(--arc-ry,80px) * -1)); filter: drop-shadow(0 0 24px rgba(230,126,34,0.9)); } 75% { transform: translate(calc(var(--arc-rx,80px) * 0.7071),calc(var(--arc-ry,80px) * -0.7071)); filter: drop-shadow(0 0 8px rgba(230,126,34,0.4)); } 100% { transform: translate(calc(var(--arc-rx,80px) * 1),0); filter: drop-shadow(0 0 2px rgba(230,126,34,0.2)); } }\n`; } break;
           case 'spin': animName = 'svgSpin'; if (!embeddedStyle.includes('svgSpin')) { embeddedStyle += `@keyframes svgSpin { 0% { transform: rotate(0deg) scale(1); } 50% { transform: rotate(180deg) scale(0.85); } 100% { transform: rotate(360deg) scale(1); } }\n`; } break;
           case 'glow': animName = 'svgGlow'; if (!embeddedStyle.includes('svgGlow')) { embeddedStyle += `@keyframes svgGlow { 0%,100% { filter: drop-shadow(0 0 4px rgba(108,92,231,0.3)); } 50% { filter: drop-shadow(0 0 24px rgba(108,92,231,0.9)); } }\n`; } break;
         }
@@ -1505,8 +1538,9 @@
 
       const easing = preset ? preset.easing : 'ease-in-out';
       const ovalVars = cfg.presetId === 'oval' ? `--oval-rx: ${cfg.ovalRx}px; --oval-ry: ${cfg.ovalRy}px;` : '';
+      const arcVars = (cfg.presetId === 'arc' || cfg.presetId === 'radiate') ? `--arc-rx: ${cfg.arcRx}px; --arc-ry: ${cfg.arcRy}px;` : '';
       const drawExtra = cfg.presetId === 'draw' ? ' stroke-dasharray: 1000; --path-length: 1000;' : '';
-      elementStyles += `[data-anim-index="${i}"] { transform-origin: ${originCx}px ${originCy}px; transform-box: view-box; ${ovalVars} animation: ${animName} ${cfg.speed}s ${easing} ${cfg.iter} ${cfg.dir}; animation-delay: ${cfg.delay}s;${drawExtra} }\n`;
+      elementStyles += `[data-anim-index="${i}"] { transform-origin: ${originCx}px ${originCy}px; transform-box: view-box; ${ovalVars}${arcVars} animation: ${animName} ${cfg.speed}s ${easing} ${cfg.iter} ${cfg.dir}; animation-delay: ${cfg.delay}s;${drawExtra} }\n`;
     });
 
     const styleEl = document.createElementNS('http://www.w3.org/2000/svg', 'style');
