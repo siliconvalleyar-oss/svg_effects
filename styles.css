@@ -707,6 +707,22 @@ input[type="range"]::-webkit-slider-thumb {
   0%, 100% { filter: drop-shadow(0 0 4px rgba(108,92,231,0.3)); }
   50% { filter: drop-shadow(0 0 24px rgba(108,92,231,0.9)); }
 }
+@keyframes svgWaveSine {
+  0% { transform: translate(0, 0); }
+  25% { transform: translate(80px, -40px); }
+  50% { transform: translate(160px, 0); }
+  75% { transform: translate(240px, 40px); }
+  100% { transform: translate(320px, 0); }
+}
+@keyframes svgWaveSquare {
+  0%, 49% { transform: translateX(0); }
+  50%, 100% { transform: translateX(80px); }
+}
+@keyframes svgWaveTriangle {
+  0% { transform: translateX(0); }
+  50% { transform: translateX(80px); }
+  100% { transform: translateX(0); }
+}
 
 /* Direction controls */
 .direction-controls { display: none; }

@@ -71,10 +71,12 @@
         <div class="control-row">
           <label>Repetir</label>
           <div class="toggle-group" id="iter-group">
-            <button class="toggle-btn active" data-val="infinite">Infinito</button>
-            <button class="toggle-btn" data-val="1">Una vez</button>
-            <button class="toggle-btn" data-val="3">3 veces</button>
+            <button class="toggle-btn active" data-val="infinite">∞</button>
+            <button class="toggle-btn" data-val="1">1</button>
+            <button class="toggle-btn" data-val="3">3</button>
+            <button class="toggle-btn" data-val="random">?</button>
           </div>
+          <input type="number" id="iter-custom" class="max-input" value="" min="1" max="999" step="1" placeholder="#" style="width:32px;display:none" title="Repeticiones personalizadas">
         </div>
         <div class="control-row">
           <label>Direccion</label>

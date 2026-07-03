@@ -19,6 +19,9 @@
     { name: 'Radiar',     id: 'radiate',color: '#e67e22', duration: 4,   easing: 'ease-in-out' },
     { name: 'Girar',      id: 'spin',   color: '#3498db', duration: 1.2, easing: 'ease-in-out' },
     { name: 'Brillar',    id: 'glow',   color: '#e74c3c', duration: 2,   easing: 'ease-in-out' },
+    { name: 'Senoidal',   id: 'wave-sine', color: '#1abc9c', duration: 3,   easing: 'ease-in-out' },
+    { name: 'Cuadrada',   id: 'wave-square', color: '#e74c3c', duration: 1.5, easing: 'step-end' },
+    { name: 'Triangular', id: 'wave-triangle', color: '#9b59b6', duration: 2,   easing: 'linear' },
   ];
 
   const shapes = [
@@ -968,7 +971,10 @@
     $('#delay-slider').value = cfg.delay;
     updateDelayDisplay(index);
 
-    $$('#iter-group .toggle-btn').forEach(b => b.classList.toggle('active', b.dataset.val === cfg.iter));
+    const iterBtnVals = ['infinite', '1', '3', 'random'];
+    const iterMatch = iterBtnVals.includes(cfg.iter) ? cfg.iter : (typeof cfg.iter === 'number' ? null : '');
+    $$('#iter-group .toggle-btn').forEach(b => b.classList.toggle('active', b.dataset.val === iterMatch));
+    updateIterCustomInput();
     $$('#dir-group .toggle-btn').forEach(b => b.classList.toggle('active', b.dataset.val === cfg.dir));
 
     const arcPresets = ['arc', 'radiate'];
@@ -1101,6 +1107,15 @@
         break;
       case 'gravity':
         kf = `@keyframes ${name} { 0% { transform: translate(${-100*cos}px,${-100*sin}px); } 30% { transform: translate(${80*cos}px,${80*sin}px); } 50% { transform: translate(${-40*cos}px,${-40*sin}px); } 70% { transform: translate(${30*cos}px,${30*sin}px); } 85% { transform: translate(${-10*cos}px,${-10*sin}px); } 100% { transform: translate(0,0); } }`;
+        break;
+      case 'wave-sine':
+        kf = `@keyframes ${name} { 0% { transform: translate(0,0); } 25% { transform: translate(${80*cos - 40*sin}px,${80*sin + 40*cos}px); } 50% { transform: translate(${160*cos}px,${160*sin}px); } 75% { transform: translate(${240*cos + 40*sin}px,${240*sin - 40*cos}px); } 100% { transform: translate(${320*cos}px,${320*sin}px); } }`;
+        break;
+      case 'wave-square':
+        kf = `@keyframes ${name} { 0%,49% { transform: translate(0,0); } 50%,100% { transform: translate(${80*cos}px,${80*sin}px); } }`;
+        break;
+      case 'wave-triangle':
+        kf = `@keyframes ${name} { 0% { transform: translate(0,0); } 50% { transform: translate(${80*cos}px,${80*sin}px); } 100% { transform: translate(0,0); } }`;
         break;
     }
 
@@ -1353,6 +1368,17 @@
   });
   $('#delay-slider').addEventListener('change', saveSliderHistory);
 
+  const iterCustom = $('#iter-custom');
+  function updateIterCustomInput() {
+    if (!iterCustom) return;
+    if (selectedElementIndex === null) { iterCustom.style.display = 'none'; return; }
+    const cfg = elementAnimations[selectedElementIndex];
+    if (!cfg) { iterCustom.style.display = 'none'; return; }
+    const isCustom = !['infinite', '1', '3', 'random'].includes(cfg.iter) && cfg.iter !== undefined;
+    iterCustom.style.display = isCustom ? '' : 'none';
+    if (isCustom) iterCustom.value = parseInt(cfg.iter) || '';
+  }
+
   $$('#iter-group .toggle-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       if (selectedElementIndex === null) return;
@@ -1361,11 +1387,34 @@
       if (!cfg) return;
       $$('#iter-group .toggle-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      cfg.iter = btn.dataset.val;
+      if (btn.dataset.val === 'random') {
+        const options = [1, 2, 3, 5, 10, 'infinite'];
+        cfg.iter = options[Math.floor(Math.random() * options.length)];
+      } else {
+        cfg.iter = btn.dataset.val;
+      }
       syncGroupValue(selectedElementIndex, 'iter', cfg.iter);
       applyOneAnimation(selectedElementIndex);
+      updateIterCustomInput();
     });
   });
+
+  if (iterCustom) {
+    iterCustom.addEventListener('change', () => {
+      if (selectedElementIndex === null) return;
+      pushHistory();
+      const cfg = getConfigForSelected();
+      if (!cfg) return;
+      const val = parseInt(iterCustom.value);
+      if (val > 0 && val <= 999) {
+        cfg.iter = val;
+        $$('#iter-group .toggle-btn').forEach(b => b.classList.remove('active'));
+        syncGroupValue(selectedElementIndex, 'iter', cfg.iter);
+        applyOneAnimation(selectedElementIndex);
+        updateIterCustomInput();
+      }
+    });
+  }
 
   $$('#dir-group .toggle-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -1577,7 +1626,7 @@
   let pivotDragState = null;
 
   function isArcPreset(id) { return id === 'arc' || id === 'radiate'; }
-  function isTranslateBased(id) { return ['slide', 'bounce', 'shake', 'float', 'gravity', 'levitate', 'arc', 'radiate'].includes(id); }
+  function isTranslateBased(id) { return ['slide', 'bounce', 'shake', 'float', 'gravity', 'levitate', 'arc', 'radiate', 'wave-sine', 'wave-square', 'wave-triangle'].includes(id); }
 
   function updatePivotMarker(index) {
     const marker = $('#pivot-marker');
@@ -2094,12 +2143,15 @@
         case 'arc': return `@keyframes ${id}_export_${i}_${angle} { 0% { transform: translate(calc(var(--arc-offset-x,0px) + var(--arc-rx,80px) * ${-cos}), calc(var(--arc-offset-y,0px) + var(--arc-rx,80px) * ${-sin})); } 25% { transform: translate(calc(var(--arc-offset-x,0px) + var(--arc-rx,80px) * ${-0.7071*cos} + var(--arc-ry,80px) * ${0.7071*sin}), calc(var(--arc-offset-y,0px) + var(--arc-rx,80px) * ${-0.7071*sin} + var(--arc-ry,80px) * ${-0.7071*cos})); } 50% { transform: translate(calc(var(--arc-offset-x,0px) + var(--arc-ry,80px) * ${sin}), calc(var(--arc-offset-y,0px) + var(--arc-ry,80px) * ${-cos})); } 75% { transform: translate(calc(var(--arc-offset-x,0px) + var(--arc-rx,80px) * ${0.7071*cos} + var(--arc-ry,80px) * ${0.7071*sin}), calc(var(--arc-offset-y,0px) + var(--arc-rx,80px) * ${0.7071*sin} + var(--arc-ry,80px) * ${-0.7071*cos})); } 100% { transform: translate(calc(var(--arc-offset-x,0px) + var(--arc-rx,80px) * ${cos}), calc(var(--arc-offset-y,0px) + var(--arc-rx,80px) * ${sin})); } }`;
         case 'radiate': return `@keyframes ${id}_export_${i}_${angle} { 0% { transform: translate(calc(var(--arc-offset-x,0px) + var(--arc-rx,80px) * ${-cos}), calc(var(--arc-offset-y,0px) + var(--arc-rx,80px) * ${-sin})); filter: drop-shadow(0 0 2px rgba(230,126,34,0.2)); } 25% { transform: translate(calc(var(--arc-offset-x,0px) + var(--arc-rx,80px) * ${-0.7071*cos} + var(--arc-ry,80px) * ${0.7071*sin}), calc(var(--arc-offset-y,0px) + var(--arc-rx,80px) * ${-0.7071*sin} + var(--arc-ry,80px) * ${-0.7071*cos})); filter: drop-shadow(0 0 8px rgba(230,126,34,0.4)); } 50% { transform: translate(calc(var(--arc-offset-x,0px) + var(--arc-ry,80px) * ${sin}), calc(var(--arc-offset-y,0px) + var(--arc-ry,80px) * ${-cos})); filter: drop-shadow(0 0 24px rgba(230,126,34,0.9)); } 75% { transform: translate(calc(var(--arc-offset-x,0px) + var(--arc-rx,80px) * ${0.7071*cos} + var(--arc-ry,80px) * ${0.7071*sin}), calc(var(--arc-offset-y,0px) + var(--arc-rx,80px) * ${0.7071*sin} + var(--arc-ry,80px) * ${-0.7071*cos})); filter: drop-shadow(0 0 8px rgba(230,126,34,0.4)); } 100% { transform: translate(calc(var(--arc-offset-x,0px) + var(--arc-rx,80px) * ${cos}), calc(var(--arc-offset-y,0px) + var(--arc-rx,80px) * ${sin})); filter: drop-shadow(0 0 2px rgba(230,126,34,0.2)); } }`;
         case 'gravity': return `@keyframes ${id}_export_${i}_${angle} { 0% { transform: translate(${-100*cos}px,${-100*sin}px); } 30% { transform: translate(${80*cos}px,${80*sin}px); } 50% { transform: translate(${-40*cos}px,${-40*sin}px); } 70% { transform: translate(${30*cos}px,${30*sin}px); } 85% { transform: translate(${-10*cos}px,${-10*sin}px); } 100% { transform: translate(0,0); } }`;
+        case 'wave-sine': return `@keyframes ${id}_export_${i}_${angle} { 0% { transform: translate(0,0); } 25% { transform: translate(${80*cos - 40*sin}px,${80*sin + 40*cos}px); } 50% { transform: translate(${160*cos}px,${160*sin}px); } 75% { transform: translate(${240*cos + 40*sin}px,${240*sin - 40*cos}px); } 100% { transform: translate(${320*cos}px,${320*sin}px); } }`;
+        case 'wave-square': return `@keyframes ${id}_export_${i}_${angle} { 0%,49% { transform: translate(0,0); } 50%,100% { transform: translate(${80*cos}px,${80*sin}px); } }`;
+        case 'wave-triangle': return `@keyframes ${id}_export_${i}_${angle} { 0% { transform: translate(0,0); } 50% { transform: translate(${80*cos}px,${80*sin}px); } 100% { transform: translate(0,0); } }`;
       }
       return null;
     }
 
     function getBaseKeyframeName(id) {
-      const map = { rotate: 'svgRotate', wheel: 'svgWheel', pulse: 'svgPulse', bounce: 'svgBounce', gravity: 'svgGravity', slide: 'svgSlide', oval: 'svgOval', fade: 'svgFade', draw: 'svgDraw', shake: 'svgShake', float: 'svgFloat', levitate: 'svgLevitate', arc: 'svgArc', radiate: 'svgRadiate', spin: 'svgSpin', glow: 'svgGlow' };
+      const map = { rotate: 'svgRotate', wheel: 'svgWheel', pulse: 'svgPulse', bounce: 'svgBounce', gravity: 'svgGravity', slide: 'svgSlide', oval: 'svgOval', fade: 'svgFade', draw: 'svgDraw', shake: 'svgShake', float: 'svgFloat', levitate: 'svgLevitate', arc: 'svgArc', radiate: 'svgRadiate', spin: 'svgSpin', glow: 'svgGlow', 'wave-sine': 'svgWaveSine', 'wave-square': 'svgWaveSquare', 'wave-triangle': 'svgWaveTriangle' };
       return map[id] || null;
     }
 
@@ -2123,6 +2175,9 @@
         svgRadiate: `@keyframes svgRadiate { 0% { transform: translate(calc(var(--arc-offset-x,0px) + var(--arc-rx,80px) * -1), calc(var(--arc-offset-y,0px))); filter: drop-shadow(0 0 2px rgba(230,126,34,0.2)); } 25% { transform: translate(calc(var(--arc-offset-x,0px) + var(--arc-rx,80px) * -0.7071), calc(var(--arc-offset-y,0px) + var(--arc-ry,80px) * -0.7071)); filter: drop-shadow(0 0 8px rgba(230,126,34,0.4)); } 50% { transform: translate(calc(var(--arc-offset-x,0px)), calc(var(--arc-offset-y,0px) + var(--arc-ry,80px) * -1)); filter: drop-shadow(0 0 24px rgba(230,126,34,0.9)); } 75% { transform: translate(calc(var(--arc-offset-x,0px) + var(--arc-rx,80px) * 0.7071), calc(var(--arc-offset-y,0px) + var(--arc-ry,80px) * -0.7071)); filter: drop-shadow(0 0 8px rgba(230,126,34,0.4)); } 100% { transform: translate(calc(var(--arc-offset-x,0px) + var(--arc-rx,80px) * 1), calc(var(--arc-offset-y,0px))); filter: drop-shadow(0 0 2px rgba(230,126,34,0.2)); } }`,
         svgSpin: `@keyframes svgSpin { 0% { transform: rotate(0deg) scale(1); } 50% { transform: rotate(180deg) scale(0.85); } 100% { transform: rotate(360deg) scale(1); } }`,
         svgGlow: `@keyframes svgGlow { 0%,100% { filter: drop-shadow(0 0 4px rgba(108,92,231,0.3)); } 50% { filter: drop-shadow(0 0 24px rgba(108,92,231,0.9)); } }`,
+        svgWaveSine: `@keyframes svgWaveSine { 0% { transform: translate(0,0); } 25% { transform: translate(80px,-40px); } 50% { transform: translate(160px,0); } 75% { transform: translate(240px,40px); } 100% { transform: translate(320px,0); } }`,
+        svgWaveSquare: `@keyframes svgWaveSquare { 0%,49% { transform: translateX(0); } 50%,100% { transform: translateX(80px); } }`,
+        svgWaveTriangle: `@keyframes svgWaveTriangle { 0% { transform: translateX(0); } 50% { transform: translateX(80px); } 100% { transform: translateX(0); } }`,
       };
       if (kfs[name]) { embeddedStyle += kfs[name] + '\n'; }
       return name;
