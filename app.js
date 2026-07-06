@@ -1115,6 +1115,7 @@
         // Toggle selection: click same element deselects
         if (selectedElementIndex === i) {
           selectedElementIndex = null;
+          hideJoystick();
           $$('.element-thumb').forEach(t => t.classList.remove('selected'));
           svg.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, g, text').forEach(el => {
             el.classList.remove('element-selected');
@@ -1341,6 +1342,7 @@
     highlightElement(index);
     loadElementConfig(index);
     updatePivotMarker(index);
+    if (isPiecesMode) showJoystick();
   }
 
   function highlightElement(index) {
@@ -1945,16 +1947,16 @@
     isPiecesMode = true;
     $('#mode-toggle').classList.add('active');
     $('#mode-toggle').textContent = 'Salir del modo piezas';
-    $('#mode-hint').textContent = 'Arrastrar para mover. Seleccionar desde el panel ELEMENTOS. ESC para deseleccionar.';
+    $('#mode-hint').textContent = 'Seleccionar desde el panel ELEMENTOS. Usar joystick para mover. ESC para deseleccionar.';
     const area = $('#preview-area');
     area.classList.add('mode-select');
     const svg = area.querySelector('svg');
     if (!svg) return;
     bakeAnimations();
     svg.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, text, g').forEach(el => {
-      el.addEventListener('pointerdown', onElementPointerDown);
       el.addEventListener('contextmenu', onElementContextMenu);
     });
+    if (selectedElementIndex !== null) showJoystick();
   }
 
   function exitPiecesMode() {
@@ -1967,12 +1969,12 @@
     const svg = area.querySelector('svg');
     if (!svg) { selectedElement = null; return; }
     svg.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, text, g').forEach(el => {
-      el.removeEventListener('pointerdown', onElementPointerDown);
       el.removeEventListener('contextmenu', onElementContextMenu);
       el.classList.remove('element-selected');
       el.classList.remove('element-dimmed');
       el.style.removeProperty('transform');
     });
+    hideJoystick();
     restoreAnimations();
     const marker = $('#pivot-marker');
     if (marker) marker.style.display = 'none';
@@ -1994,28 +1996,89 @@
   function onElementPointerDown(e) {
     e.stopPropagation();
     e.preventDefault();
-    const el = e.currentTarget;
-    const svgEl = $('#preview-area svg');
-    const vb = getSvgViewBox(svgEl);
-    dragState = { element: el, startClientX: e.clientX, startClientY: e.clientY, svgRect: svgEl.getBoundingClientRect(), vbW: vb.w, vbH: vb.h };
-    document.addEventListener('pointermove', onElementPointerMove);
-    document.addEventListener('pointerup', onElementPointerUp);
   }
 
-  function onElementPointerMove(e) {
-    if (!dragState) return;
+  // ===== JOYSTICK =====
+
+  let joystickDragState = null;
+
+  function showJoystick() {
+    const j = $('#joystick');
+    if (j) j.style.display = '';
+  }
+
+  function hideJoystick() {
+    const j = $('#joystick');
+    if (j) { j.style.display = 'none'; j.classList.remove('dragging'); }
+    if (joystickDragState) {
+      document.removeEventListener('pointermove', onJoystickMove);
+      document.removeEventListener('pointerup', onJoystickUp);
+      joystickDragState = null;
+    }
+  }
+
+  function setupJoystick() {
+    const j = $('#joystick');
+    if (!j) return;
+    j.addEventListener('pointerdown', e => {
+      if (selectedElementIndex === null) return;
+      const el = getElementByIndex(selectedElementIndex);
+      if (!el) return;
+      e.preventDefault();
+      e.stopPropagation();
+      j.classList.add('dragging');
+      const svgEl = $('#preview-area svg');
+      const vb = getSvgViewBox(svgEl);
+      // Parse current translate to accumulate
+      let curTx = 0, curTy = 0;
+      const cur = el.style.transform || '';
+      const m = cur.match(/translate\(([^)]+)\)/);
+      if (m) {
+        const parts = m[1].split(',').map(s => parseFloat(s.trim()));
+        curTx = parts[0] || 0;
+        curTy = parts[1] || 0;
+      }
+      joystickDragState = {
+        element: el,
+        startX: e.clientX,
+        startY: e.clientY,
+        svgRect: svgEl.getBoundingClientRect(),
+        vbW: vb.w,
+        vbH: vb.h,
+        curTx, curTy
+      };
+      document.addEventListener('pointermove', onJoystickMove);
+      document.addEventListener('pointerup', onJoystickUp);
+    });
+  }
+
+  function onJoystickMove(e) {
+    if (!joystickDragState) return;
     e.preventDefault();
-    const dx = e.clientX - dragState.startClientX;
-    const dy = e.clientY - dragState.startClientY;
-    const svgRect = dragState.svgRect;
-    dragState.element.style.transform = `translate(${dx * dragState.vbW / svgRect.width}px, ${dy * dragState.vbH / svgRect.height}px)`;
+    const ds = joystickDragState;
+    const dx = (e.clientX - ds.startX) * ds.vbW / ds.svgRect.width;
+    const dy = (e.clientY - ds.startY) * ds.vbH / ds.svgRect.height;
+    ds.element.style.transform = `translate(${ds.curTx + dx}px, ${ds.curTy + dy}px)`;
   }
 
-  function onElementPointerUp() {
-    if (!dragState) return;
-    document.removeEventListener('pointermove', onElementPointerMove);
-    document.removeEventListener('pointerup', onElementPointerUp);
-    dragState = null;
+  function onJoystickUp(e) {
+    if (!joystickDragState) return;
+    document.removeEventListener('pointermove', onJoystickMove);
+    document.removeEventListener('pointerup', onJoystickUp);
+    const j = $('#joystick');
+    if (j) j.classList.remove('dragging');
+    // Commit accumulated transform
+    const ds = joystickDragState;
+    if (ds.element) {
+      const cur = ds.element.style.transform || '';
+      const m = cur.match(/translate\(([^)]+)\)/);
+      if (m) {
+        const parts = m[1].split(',').map(s => parseFloat(s.trim()));
+        ds.curTx = parts[0] || 0;
+        ds.curTy = parts[1] || 0;
+      }
+    }
+    joystickDragState = null;
   }
 
   function getElementIndex(el) {
@@ -2616,6 +2679,7 @@
       if (selectedGroupElements.length) {
         clearGroupSelection();
       } else if (selectedElementIndex !== null) {
+        hideJoystick();
         const svg = $('#preview-area svg');
         if (svg) {
           svg.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, g, text').forEach(el => {
@@ -2993,6 +3057,19 @@
   // Initialize workspace tabs
   renderWorkspaceTabs();
   updateWorkspaceTitle();
+
+  // Language toggle
+  const langSelect = $('#lang-select');
+  if (langSelect) {
+    const saved = localStorage.getItem('app_lang');
+    if (saved) langSelect.value = saved;
+    langSelect.addEventListener('change', () => {
+      localStorage.setItem('app_lang', langSelect.value);
+    });
+  }
+
+  // Initialize joystick
+  setupJoystick();
 
   // Keyboard shortcuts
   document.addEventListener('keydown', e => {

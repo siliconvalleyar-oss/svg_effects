@@ -1045,3 +1045,9 @@ input[type="range"]::-webkit-slider-thumb {
   filter: drop-shadow(0 0 4px rgba(243,156,18,0.8));
 }
 #pivot-marker svg { display: block; }
+
+/* Joystick */
+#joystick { transition: opacity 0.2s ease, transform 0.2s ease; }
+#joystick.dragging { transform: translateX(-50%) scale(1.1); background: rgba(108,92,231,0.35); cursor: grabbing; }
+#joystick .joystick-arrow { position:absolute; font-size:8px; color:rgba(255,255,255,0.4); pointer-events:none; transition:color 0.15s; }
+#joystick .joystick-arrow.active { color:#fff; }

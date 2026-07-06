@@ -25,6 +25,13 @@
       <div class="section-title">Espacios de trabajo</div>
       <div class="workspace-tabs" id="workspace-tabs"></div>
       <div class="workspace-title" id="workspace-title">SVG Animator</div>
+      <div style="margin-top:6px;display:flex;gap:4px;align-items:center">
+        <label style="font-size:10px;color:var(--text-dim)">Idioma:</label>
+        <select id="lang-select" style="flex:1;font-size:10px;padding:2px 4px;background:var(--bg-tertiary);color:var(--text);border:1px solid var(--border);border-radius:4px">
+          <option value="es">Español</option>
+          <option value="en">English</option>
+        </select>
+      </div>
     </div>
 
     <div class="section">
@@ -242,6 +249,13 @@
       <p>Sube un SVG o elige una forma</p>
     </div>
     <div id="preview-area" style="display:none"></div>
+    <div id="joystick" style="display:none;position:absolute;bottom:20px;left:50%;transform:translateX(-50%);z-index:100;width:80px;height:80px;border-radius:50%;background:rgba(108,92,231,0.2);border:2px solid rgba(108,92,231,0.5);cursor:grab;touch-action:none;user-select:none">
+      <div id="joystick-puck" style="position:absolute;top:50%;left:50%;width:24px;height:24px;margin:-12px 0 0 -12px;border-radius:50%;background:var(--accent);border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.3);cursor:grab;touch-action:none;pointer-events:none"></div>
+      <div style="position:absolute;top:2px;left:50%;transform:translateX(-50%);font-size:8px;color:rgba(255,255,255,0.6);pointer-events:none">&#9650;</div>
+      <div style="position:absolute;bottom:2px;left:50%;transform:translateX(-50%);font-size:8px;color:rgba(255,255,255,0.6);pointer-events:none">&#9660;</div>
+      <div style="position:absolute;left:2px;top:50%;transform:translateY(-50%);font-size:8px;color:rgba(255,255,255,0.6);pointer-events:none">&#9664;</div>
+      <div style="position:absolute;right:2px;top:50%;transform:translateY(-50%);font-size:8px;color:rgba(255,255,255,0.6);pointer-events:none">&#9654;</div>
+    </div>
     <div id="rive-area" style="display:none">
       <canvas id="rive-canvas" width="500" height="500"></canvas>
       <div class="rive-controls">
