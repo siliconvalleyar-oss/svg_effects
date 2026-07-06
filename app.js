@@ -2,6 +2,340 @@
   const $ = s => document.querySelector(s);
   const $$ = s => document.querySelectorAll(s);
 
+  // ===== I18N =====
+  const translations = {
+    es: {
+      'app.title': 'SVG Animator',
+      'workspaces': 'Espacios de trabajo',
+      'import': 'Importar SVG',
+      'server.files': 'Archivos del servidor',
+      'generate': 'Generar SVG',
+      'animations': 'Animaciones',
+      'apply.all': 'Aplicar a todos',
+      'controls': 'Controles',
+      'speed': 'Velocidad',
+      'delay': 'Retraso',
+      'repeat': 'Repetir',
+      'direction': 'Direccion',
+      'direction.angle': 'Sentido / Angulo',
+      'angle': 'Angulo',
+      'oval': 'Ovalo',
+      'oval.width': 'Ancho X',
+      'oval.height': 'Alto Y',
+      'oval.angle': 'Angulo',
+      'arc': 'Arco',
+      'arc.x': 'Eje X',
+      'arc.y': 'Eje Y',
+      'trajectories': 'Trayectorias',
+      'pieces.mode': 'Modo Piezas',
+      'pieces.enter': 'Mover piezas por separado',
+      'pieces.exit': 'Salir del modo piezas',
+      'pieces.hint.select': 'Seleccionar desde el panel ELEMENTOS. Usar joystick para mover. ESC para deseleccionar.',
+      'pieces.hint.inactive': 'Activa para seleccionar y arrastrar elementos individuales',
+      'export': 'Exportar',
+      'export.btn': 'Descargar SVG Animado',
+      'boundary.show': 'Mostrar límite',
+      'history': 'Historial',
+      'undo': 'Deshacer',
+      'redo': 'Rehacer',
+      'reset': 'Resetear',
+      'bg.reference': 'Fondo de referencia',
+      'bg.add': '+ Agregar imagen',
+      'slides': 'Switch / Slides',
+      'slides.add': '+ Agregar SVG actual',
+      'slides.transition': 'Transicion',
+      'slides.duration': 'Dur. slide',
+      'slides.speed': 'Vel. trans.',
+      'slide.play': 'Play',
+      'elements': 'Elementos SVG',
+      'elements.empty': 'Carga un SVG para ver sus piezas',
+      'elements.select': 'Seleccionar',
+      'elements.select.all': 'Seleccionar todas',
+      'elements.deselect.all': 'Deseleccionar todas',
+      'elements.group': 'Grupo +',
+      'elements.clear': '✕',
+      'elements.visibility': 'Mostrar/Ocultar',
+      'group.create': 'Crear grupo con selección',
+      'group.clear': 'Limpiar selección',
+      'trajectory.edit': 'Editar trayectorias',
+      'trajectory.assign': 'Asignar a elemento',
+      'trajectory.none': '— Ninguna —',
+      'context.group': 'Agrupar',
+      'context.ungroup': 'Desagrupar',
+      'context.show': 'Ver',
+      'context.hide': 'Ocultar',
+      'context.assign.traj': 'Asignar trayectoria →',
+      'context.remove.traj': '  — Quitar trayectoria',
+      'context.delete': 'Eliminar',
+      'play': 'Play',
+      'pause': 'Pause',
+      'stop': 'Stop',
+      'normal': 'Normal',
+      'reverse': 'Reversa',
+      'alternate': 'Alterno',
+      'infinite': '∞',
+      'random': '?',
+      'loading': 'Cargando...',
+      'empty.state': 'Sube un SVG o elige una forma',
+      'language': 'Idioma',
+      'config': 'Config',
+      'upload.zone': 'Arrastra un SVG aqui<br>o <span class="browse" id="browse-btn">examinar</span>',
+      // Presets
+      'preset.Rotar': 'Rotar',
+      'preset.Rueda': 'Rueda',
+      'preset.Pulsar': 'Pulsar',
+      'preset.Rebotar': 'Rebotar',
+      'preset.Gravedad': 'Gravedad',
+      'preset.Deslizar': 'Deslizar',
+      'preset.Ovalo': 'Óvalo',
+      'preset.Desvanecer': 'Desvanecer',
+      'preset.Dibujar': 'Dibujar',
+      'preset.Temblar': 'Temblar',
+      'preset.Flotar': 'Flotar',
+      'preset.Levitar': 'Levitar',
+      'preset.Arco': 'Arco',
+      'preset.Radiar': 'Radiar',
+      'preset.Girar': 'Girar',
+      'preset.Brillar': 'Brillar',
+      'preset.Senoidal': 'Senoidal',
+      'preset.Cuadrada': 'Cuadrada',
+      'preset.Triangular': 'Triangular',
+      // Shapes
+      'shape.Circulo': 'Círculo',
+      'shape.Cuadrado': 'Cuadrado',
+      'shape.Triangulo': 'Triángulo',
+      'shape.Estrella': 'Estrella',
+      'shape.Corazon': 'Corazón',
+      'shape.Hexagono': 'Hexágono',
+      'shape.Rombo': 'Rombo',
+      'shape.Cruz': 'Cruz',
+      'shape.Onda': 'Onda',
+      'shape.Flecha': 'Flecha',
+      'shape.Rayo': 'Rayo',
+      'shape.Luna': 'Luna',
+      // Groups
+      'groups.title': 'Grupos',
+      'groups.pieces': 'piezas',
+      'group.delete': 'Eliminar grupo',
+      // Trajectories
+      'trajectory.empty': 'Sin trayectorias',
+      'trajectory.new': '+ Nueva trayectoria',
+      'trajectory.name.prompt': 'Nombre de la trayectoria:',
+      'trajectory.name.default': 'Trayectoria ',
+      'trajectory.close': 'Cerrar trayectorias',
+      'trajectory.lasso.on': '✎ Lazo: ON',
+      'trajectory.lasso.off': '✎ Lazo: OFF',
+      // Background
+      'bg.send.back': 'Al fondo',
+      'bg.move.down': 'Bajar',
+      'bg.move.up': 'Subir',
+      'bg.bring.front': 'Al frente',
+      'bg.reset.pos': 'Restablecer posición',
+      // Workspace
+      'ws.close': 'Cerrar',
+      'ws.new': 'Nuevo espacio de trabajo',
+      'ws.name.prompt': 'Nombre del espacio:',
+      'ws.name.default': 'Espacio ',
+      // Zoom
+      'zoom.out': 'Alejar',
+      'zoom.in': 'Acercar',
+      // Slides
+      'slide.name': 'Slide ',
+      'slide.pause': '⏸ Pausa',
+      'slide.play': '▶ Play',
+      // Files
+      'files.empty': 'No hay archivos',
+      // Confirm dialogs
+      'confirm.reset': '¿Resetear todo a su estado original?',
+      'group.name.prompt': 'Nombre del grupo:',
+      'group.name.default': 'Grupo ',
+    },
+    en: {
+      'app.title': 'SVG Animator',
+      'workspaces': 'Workspaces',
+      'import': 'Import SVG',
+      'server.files': 'Server Files',
+      'generate': 'Generate SVG',
+      'animations': 'Animations',
+      'apply.all': 'Apply to all',
+      'controls': 'Controls',
+      'speed': 'Speed',
+      'delay': 'Delay',
+      'repeat': 'Repeat',
+      'direction': 'Direction',
+      'direction.angle': 'Direction / Angle',
+      'angle': 'Angle',
+      'oval': 'Oval',
+      'oval.width': 'Width X',
+      'oval.height': 'Height Y',
+      'oval.angle': 'Angle',
+      'arc': 'Arc',
+      'arc.x': 'Axis X',
+      'arc.y': 'Axis Y',
+      'trajectories': 'Trajectories',
+      'pieces.mode': 'Pieces Mode',
+      'pieces.enter': 'Move pieces separately',
+      'pieces.exit': 'Exit pieces mode',
+      'pieces.hint.select': 'Select from ELEMENTS panel. Use joystick to move. ESC to deselect.',
+      'pieces.hint.inactive': 'Enable to select and drag individual elements',
+      'export': 'Export',
+      'export.btn': 'Download Animated SVG',
+      'boundary.show': 'Show boundary',
+      'history': 'History',
+      'undo': 'Undo',
+      'redo': 'Redo',
+      'reset': 'Reset',
+      'bg.reference': 'Reference Background',
+      'bg.add': '+ Add Image',
+      'slides': 'Slideshow',
+      'slides.add': '+ Add current SVG',
+      'slides.transition': 'Transition',
+      'slides.duration': 'Slide dur.',
+      'slides.speed': 'Trans. speed',
+      'slide.play': 'Play',
+      'elements': 'SVG Elements',
+      'elements.empty': 'Load an SVG to see its pieces',
+      'elements.select': 'Select',
+      'elements.select.all': 'Select all',
+      'elements.deselect.all': 'Deselect all',
+      'elements.group': 'Group +',
+      'elements.clear': '✕',
+      'elements.visibility': 'Show/Hide',
+      'group.create': 'Create group with selection',
+      'group.clear': 'Clear selection',
+      'trajectory.edit': 'Edit trajectories',
+      'trajectory.assign': 'Assign to element',
+      'trajectory.none': '— None —',
+      'context.group': 'Group',
+      'context.ungroup': 'Ungroup',
+      'context.show': 'Show',
+      'context.hide': 'Hide',
+      'context.assign.traj': 'Assign trajectory →',
+      'context.remove.traj': '  — Remove trajectory',
+      'context.delete': 'Delete',
+      'play': 'Play',
+      'pause': 'Pause',
+      'stop': 'Stop',
+      'normal': 'Normal',
+      'reverse': 'Reverse',
+      'alternate': 'Alternate',
+      'infinite': '∞',
+      'random': '?',
+      'loading': 'Loading...',
+      'empty.state': 'Upload an SVG or pick a shape',
+      'language': 'Language',
+      'config': 'Config',
+      'upload.zone': 'Drag an SVG here<br>or <span class="browse" id="browse-btn">browse</span>',
+      // Presets
+      'preset.Rotar': 'Rotate',
+      'preset.Rueda': 'Wheel',
+      'preset.Pulsar': 'Pulse',
+      'preset.Rebotar': 'Bounce',
+      'preset.Gravedad': 'Gravity',
+      'preset.Deslizar': 'Slide',
+      'preset.Ovalo': 'Oval',
+      'preset.Desvanecer': 'Fade',
+      'preset.Dibujar': 'Draw',
+      'preset.Temblar': 'Shake',
+      'preset.Flotar': 'Float',
+      'preset.Levitar': 'Levitate',
+      'preset.Arco': 'Arc',
+      'preset.Radiar': 'Radiate',
+      'preset.Girar': 'Spin',
+      'preset.Brillar': 'Glow',
+      'preset.Senoidal': 'Sine Wave',
+      'preset.Cuadrada': 'Square Wave',
+      'preset.Triangular': 'Triangle Wave',
+      // Shapes
+      'shape.Circulo': 'Circle',
+      'shape.Cuadrado': 'Square',
+      'shape.Triangulo': 'Triangle',
+      'shape.Estrella': 'Star',
+      'shape.Corazon': 'Heart',
+      'shape.Hexagono': 'Hexagon',
+      'shape.Rombo': 'Diamond',
+      'shape.Cruz': 'Cross',
+      'shape.Onda': 'Wave',
+      'shape.Flecha': 'Arrow',
+      'shape.Rayo': 'Lightning',
+      'shape.Luna': 'Moon',
+      // Groups
+      'groups.title': 'Groups',
+      'groups.pieces': 'pieces',
+      'group.delete': 'Delete group',
+      // Trajectories
+      'trajectory.empty': 'No trajectories',
+      'trajectory.new': '+ New trajectory',
+      'trajectory.name.prompt': 'Trajectory name:',
+      'trajectory.name.default': 'Trajectory ',
+      'trajectory.close': 'Close trajectories',
+      'trajectory.lasso.on': '✎ Lasso: ON',
+      'trajectory.lasso.off': '✎ Lasso: OFF',
+      // Background
+      'bg.send.back': 'Send to back',
+      'bg.move.down': 'Move down',
+      'bg.move.up': 'Move up',
+      'bg.bring.front': 'Bring to front',
+      'bg.reset.pos': 'Reset position',
+      // Workspace
+      'ws.close': 'Close',
+      'ws.new': 'New workspace',
+      'ws.name.prompt': 'Workspace name:',
+      'ws.name.default': 'Workspace ',
+      // Zoom
+      'zoom.out': 'Zoom out',
+      'zoom.in': 'Zoom in',
+      // Slides
+      'slide.name': 'Slide ',
+      'slide.pause': '⏸ Pause',
+      'slide.play': '▶ Play',
+      // Files
+      'files.empty': 'No files',
+      // Confirm dialogs
+      'confirm.reset': 'Reset everything to its original state?',
+      'group.name.prompt': 'Group name:',
+      'group.name.default': 'Group ',
+    },
+  };
+  let currentLang = localStorage.getItem('app_lang') || 'es';
+  function t(key) {
+    const tr = translations[currentLang];
+    if (tr && tr[key] !== undefined) return tr[key];
+    if (translations.es[key] !== undefined) return translations.es[key];
+    return key;
+  }
+  function setLang(lang) {
+    if (!translations[lang]) return;
+    currentLang = lang;
+    localStorage.setItem('app_lang', lang);
+    applyLanguage();
+  }
+  function applyLanguage() {
+    // Update all elements with data-i18n attribute
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      el.textContent = t(el.getAttribute('data-i18n'));
+    });
+    document.querySelectorAll('[data-i18n-html]').forEach(el => {
+      el.innerHTML = t(el.getAttribute('data-i18n-html'));
+    });
+    document.querySelectorAll('[data-i18n-title]').forEach(el => {
+      el.title = t(el.getAttribute('data-i18n-title'));
+    });
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+      el.placeholder = t(el.getAttribute('data-i18n-placeholder'));
+    });
+    // Update document title
+    document.title = t('app.title');
+    // Update lang attribute
+    document.documentElement.lang = currentLang;
+    // Re-render dynamic content if needed
+    if (typeof renderElements === 'function') renderElements();
+    if (typeof renderShapeGrid === 'function') renderShapeGrid();
+    if (typeof renderPresetGrid === 'function') renderPresetGrid();
+    if (typeof renderSlideList === 'function') renderSlideList();
+    if (typeof renderTrajectories === 'function') renderTrajectories();
+  }
+
   const presets = [
     { name: 'Rotar',      id: 'rotate', color: '#6c5ce7', duration: 2,   easing: 'linear' },
     { name: 'Rueda',      id: 'wheel',  color: '#e74c3c', duration: 3,   easing: 'linear' },
@@ -48,7 +382,7 @@
   function createWorkspace(name) {
     const ws = {
       id: 'ws_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
-      name: name || 'Espacio ' + nextWorkspaceNum++,
+      name: name || t('ws.name.default') + nextWorkspaceNum++,
       elementAnimations: {},
       elementGroups: {},
       selectedElementIndex: null,
@@ -187,7 +521,7 @@
     workspaces.forEach(ws => {
       const tab = document.createElement('div');
       tab.className = 'ws-tab' + (ws.id === activeWorkspaceId ? ' active' : '');
-      tab.innerHTML = `<span class="ws-tab-name">${ws.name}</span><span class="ws-tab-close" title="Cerrar">&times;</span>`;
+      tab.innerHTML = `<span class="ws-tab-name">${ws.name}</span><span class="ws-tab-close" title="${t('ws.close')}">&times;</span>`;
       tab.querySelector('.ws-tab-name').addEventListener('click', () => switchToWorkspace(ws.id));
       tab.querySelector('.ws-tab-close').addEventListener('click', e => {
         e.stopPropagation();
@@ -199,7 +533,7 @@
     const addBtn = document.createElement('div');
     addBtn.className = 'ws-tab ws-tab-add';
     addBtn.textContent = '+';
-    addBtn.title = 'Nuevo espacio de trabajo';
+    addBtn.title = t('ws.new');
     addBtn.addEventListener('click', () => addNewWorkspace());
     container.appendChild(addBtn);
   }
@@ -240,7 +574,7 @@
   function renameWorkspace(id) {
     const ws = workspaces.find(w => w.id === id);
     if (!ws) return;
-    const name = prompt('Nombre del espacio:', ws.name);
+    const name = prompt(t('ws.name.prompt'), ws.name);
     if (name) { ws.name = name; renderWorkspaceTabs(); }
     // Also update title bar
     updateWorkspaceTitle();
@@ -254,7 +588,7 @@
 
   // Initialize default workspace
   (function initWorkspace() {
-    const ws = createWorkspace('Espacio 1');
+    const ws = createWorkspace(t('ws.name.default') + '1');
     workspaces.push(ws);
     activeWorkspaceId = ws.id;
   })();
@@ -342,7 +676,7 @@
     if (!zoomBar) {
       zoomBar = document.createElement('div');
       zoomBar.id = 'zoom-bar';
-      zoomBar.innerHTML = '<button class="zoom-btn" id="zoom-out" title="Alejar">−</button><span id="zoom-level">100%</span><button class="zoom-btn" id="zoom-in" title="Acercar">+</button>';
+      zoomBar.innerHTML = '<button class="zoom-btn" id="zoom-out" title="' + t('zoom.out') + '">−</button><span id="zoom-level">100%</span><button class="zoom-btn" id="zoom-in" title="' + t('zoom.in') + '">+</button>';
       area.appendChild(zoomBar);
       $('#zoom-out').addEventListener('click', () => { zoomLevel = Math.max(0.2, zoomLevel / 1.3); applyZoom(); });
       $('#zoom-in').addEventListener('click', () => { zoomLevel = Math.min(5, zoomLevel * 1.3); applyZoom(); });
@@ -418,6 +752,32 @@
     if (frame) frame.style.display = boundaryActive ? '' : 'none';
     const btn = $('#boundary-toggle');
     if (btn) btn.classList.toggle('active', boundaryActive);
+    const preview = $('#preview');
+    if (preview) preview.classList.toggle('boundary-active', boundaryActive);
+    if (boundaryActive) {
+      updateBoundaryDots();
+    } else {
+      const dots = $('#boundary-dots');
+      if (dots) dots.remove();
+    }
+  }
+
+  function updateBoundaryDots() {
+    let dots = $('#boundary-dots');
+    if (!dots) {
+      dots = document.createElement('div');
+      dots.id = 'boundary-dots';
+      dots.style.cssText = 'position:absolute;pointer-events:none;z-index:19;background:radial-gradient(circle at 1px 1px, var(--border) 1px, transparent 0);background-size:24px 24px';
+      $('#preview-area').appendChild(dots);
+    }
+    const frame = $('#boundary-frame');
+    if (frame) {
+      dots.style.left = frame.style.left;
+      dots.style.top = frame.style.top;
+      dots.style.width = frame.style.width;
+      dots.style.height = frame.style.height;
+    }
+    dots.style.display = '';
   }
 
   function setupBoundary() {
@@ -454,6 +814,7 @@
     frame.style.top = (svgRect.top - areaRect.top) + 'px';
     frame.style.width = svgRect.width + 'px';
     frame.style.height = svgRect.height + 'px';
+    if (boundaryActive) updateBoundaryDots();
   }
 
   let boundaryDrag = null;
@@ -547,20 +908,20 @@
         <img src="${img.dataUrl}" class="bg-thumb">
         <span class="bg-name">${img.name}</span>
         <div class="bg-controls">
-          <button class="bg-btn" data-action="hide" title="${img.hidden ? 'Mostrar' : 'Ocultar'}">${img.hidden ? '👁' : '🙈'}</button>
+          <button class="bg-btn" data-action="hide" title="${img.hidden ? t('context.show') : t('context.hide')}">${img.hidden ? '👁' : '🙈'}</button>
           <label style="font-size:9px;color:var(--text-dim);display:flex;align-items:center;gap:2px">
             <input type="range" min="0" max="1" step="0.05" value="${img.opacity}" style="width:40px;height:3px" class="bg-opacity-slider">
             ${Math.round(img.opacity * 100)}%
           </label>
         </div>
         <div class="bg-controls">
-          <button class="bg-btn" data-action="back" title="Al fondo">⏮</button>
-          <button class="bg-btn" data-action="down" title="Bajar">◀</button>
+          <button class="bg-btn" data-action="back" title="${t('bg.send.back')}">⏮</button>
+          <button class="bg-btn" data-action="down" title="${t('bg.move.down')}">◀</button>
           <span class="bg-z">${i + 1}</span>
-          <button class="bg-btn" data-action="up" title="Subir">▶</button>
-          <button class="bg-btn" data-action="front" title="Al frente">⏭</button>
-          <button class="bg-btn" data-action="reset-pos" title="Restablecer posicion">⟲</button>
-          <button class="bg-btn danger" data-action="remove" title="Eliminar">✕</button>
+          <button class="bg-btn" data-action="up" title="${t('bg.move.up')}">▶</button>
+          <button class="bg-btn" data-action="front" title="${t('bg.bring.front')}">⏭</button>
+          <button class="bg-btn" data-action="reset-pos" title="${t('bg.reset.pos')}">⟲</button>
+          <button class="bg-btn danger" data-action="remove" title="${t('context.delete')}">✕</button>
         </div>`;
       item.querySelectorAll('.bg-btn').forEach(btn => {
         btn.addEventListener('click', e => {
@@ -678,7 +1039,7 @@
 
   function resetAll() {
     if (!originalSvgString) return;
-    if (!confirm('¿Resetear todo a su estado original?')) return;
+    if (!confirm(t('confirm.reset'))) return;
     elementAnimations = {};
     elementGroups = {};
     selectedElementIndex = null;
@@ -712,7 +1073,7 @@
   function renderFileList(files) {
     fileList.innerHTML = '';
     if (files.length === 0) {
-      fileList.innerHTML = '<span style="color:#666;font-size:12px;padding:8px">No hay archivos</span>';
+      fileList.innerHTML = '<span style="color:#666;font-size:12px;padding:8px">' + t('files.empty') + '</span>';
       return;
     }
     files.forEach(file => {
@@ -814,7 +1175,7 @@
   shapes.forEach(s => {
     const btn = document.createElement('button');
     btn.className = 'shape-btn';
-    btn.innerHTML = s.svg + s.name;
+    btn.innerHTML = s.svg + t('shape.' + s.name);
     btn.addEventListener('click', () => loadSvgString(s.svg));
     shapeGrid.appendChild(btn);
   });
@@ -826,7 +1187,7 @@
     const btn = document.createElement('button');
     btn.className = 'preset-btn';
     btn.dataset.id = p.id;
-    btn.innerHTML = `<span class="dot" style="background:${p.color}"></span>${p.name}`;
+    btn.innerHTML = `<span class="dot" style="background:${p.color}"></span>${t('preset.' + p.name)}`;
     btn.addEventListener('click', () => {
       lastPresetId = p.id;
       togglePreset(p.id);
@@ -1005,25 +1366,26 @@
     const savedScrollTop = scrollContainer ? scrollContainer.scrollTop : 0;
     grid.innerHTML = '';
     const svg = $('#preview-area svg');
-    if (!svg) { grid.innerHTML = '<div class="file-empty">Sin elementos</div>'; return; }
+    if (!svg) { grid.innerHTML = '<div class="file-empty">' + t('elements.empty') + '</div>'; return; }
 
     const elements = svg.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, g, text');
-    if (!elements.length) { grid.innerHTML = '<div class="file-empty">Sin elementos</div>'; return; }
+    if (!elements.length) { grid.innerHTML = '<div class="file-empty">' + t('elements.empty') + '</div>'; return; }
 
     // Group controls header
     const groupHeader = document.createElement('div');
     groupHeader.className = 'group-controls';
     const toggleBtn = document.createElement('button');
     toggleBtn.className = 'group-btn';
-    toggleBtn.textContent = '☰ Seleccionar';
-    toggleBtn.title = 'Seleccionar múltiples piezas';
+    toggleBtn.textContent = '☰ ' + t('elements.select.all');
+    toggleBtn.title = t('elements.select.all');
+    toggleBtn.dataset.allSelected = 'false';
     toggleBtn.addEventListener('click', toggleMultiSelectMode);
     groupHeader.appendChild(toggleBtn);
 
     const createBtn = document.createElement('button');
     createBtn.className = 'group-btn';
-    createBtn.textContent = 'Grupo +';
-    createBtn.title = 'Crear grupo con selección';
+    createBtn.textContent = t('elements.group');
+    createBtn.title = t('group.create');
     createBtn.style.display = 'none';
     createBtn.addEventListener('click', createGroupFromSelection);
     groupHeader.appendChild(createBtn);
@@ -1031,7 +1393,7 @@
     const clearBtn = document.createElement('button');
     clearBtn.className = 'group-btn';
     clearBtn.textContent = '✕';
-    clearBtn.title = 'Limpiar selección';
+    clearBtn.title = t('group.clear');
     clearBtn.style.display = 'none';
     clearBtn.addEventListener('click', clearGroupSelection);
     groupHeader.appendChild(clearBtn);
@@ -1093,15 +1455,27 @@
       const info = document.createElement('div');
       info.className = 'el-info';
       const groupLabel = group ? ` <span class="group-badge" style="background:${group.color || '#666'}">${group.name}</span>` : '';
-      info.innerHTML = `<div class="el-name">${name}${groupLabel}</div><div class="el-type">${preset ? preset.name : (group ? group.name : '—')}</div>`;
+      info.innerHTML = `<div class="el-name">${name}${groupLabel}</div><div class="el-type">${preset ? t('preset.' + preset.name) : (group ? group.name : t('trajectory.none'))}</div>`;
       item.appendChild(info);
 
       const visBtn = document.createElement('button');
       visBtn.className = 'el-visibility';
       visBtn.innerHTML = '&#128065;';
-      visBtn.title = 'Mostrar/Ocultar';
+      visBtn.title = t('elements.visibility');
       visBtn.addEventListener('click', e => {
         e.stopPropagation();
+        // Check if ALL elements are visible
+        const allVisible = Array.from(origElements).every(el => el.style.display !== 'none');
+        if (allVisible) {
+          // Hide all
+          origElements.forEach((el, idx) => {
+            el.style.display = 'none';
+          });
+          // Refresh render to update all visibility buttons
+          renderElements();
+          return;
+        }
+        // Toggle individual
         const original = origElements[i];
         if (!original) return;
         const hidden = original.style.display === 'none';
@@ -1138,7 +1512,7 @@
     if (Object.keys(elementGroups).length > 0) {
       const groupsSection = document.createElement('div');
       groupsSection.className = 'groups-section';
-      groupsSection.innerHTML = '<div class="groups-title">Grupos</div>';
+      groupsSection.innerHTML = '<div class="groups-title">' + t('groups.title') + '</div>';
       Object.entries(elementGroups).forEach(([gid, group]) => {
         const groupItem = document.createElement('div');
         groupItem.className = 'group-item';
@@ -1146,8 +1520,8 @@
         groupItem.dataset.groupId = gid;
         if (selectedGroupId === gid) groupItem.classList.add('active');
         groupItem.innerHTML = `
-          <span class="group-item-name">${group.name} (${group.elements.length} piezas)</span>
-          <button class="group-delete-btn" title="Eliminar grupo">✕</button>
+          <span class="group-item-name">${group.name} (${group.elements.length} ${t('groups.pieces')})</span>
+          <button class="group-delete-btn" title="${t('group.delete')}">✕</button>
         `;
         groupItem.querySelector('.group-delete-btn').addEventListener('click', e => { e.stopPropagation(); deleteGroup(gid); });
         groupItem.addEventListener('click', () => selectGroup(gid));
@@ -1164,23 +1538,30 @@
   const groupColors = ['#6c5ce7', '#e74c3c', '#2ecc71', '#f39c12', '#1abc9c', '#9b59b6', '#3498db', '#e67e22'];
 
   function toggleMultiSelectMode() {
-    isMultiSelectMode = !isMultiSelectMode;
     const toggleBtn = $('#toggle-multiselect');
+    if (!toggleBtn) return;
+    const allSelected = toggleBtn.dataset.allSelected === 'true';
+    const svg = $('#preview-area svg');
+    if (!svg) return;
+    const elements = svg.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, g, text');
     const createBtn = $('#create-group-btn');
     const clearBtn = $('#clear-selection-btn');
-    if (toggleBtn) toggleBtn.classList.toggle('active', isMultiSelectMode);
-    if (isMultiSelectMode) {
-      const svg = $('#preview-area svg');
-      if (svg) {
-        const elements = svg.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, g, text');
-        selectedGroupElements = Array.from(elements).map((_, i) => i);
-      }
-      if (createBtn) createBtn.style.display = selectedGroupElements.length >= 2 ? '' : 'none';
-      if (clearBtn) clearBtn.style.display = '';
-    } else {
+    if (allSelected) {
+      // Deselect all
       selectedGroupElements = [];
+      toggleBtn.dataset.allSelected = 'false';
+      toggleBtn.innerHTML = '☰ ' + t('elements.select.all');
+      toggleBtn.title = t('elements.select.all');
       if (createBtn) createBtn.style.display = 'none';
       if (clearBtn) clearBtn.style.display = 'none';
+    } else {
+      // Select all
+      selectedGroupElements = Array.from(elements).map((_, i) => i);
+      toggleBtn.dataset.allSelected = 'true';
+      toggleBtn.innerHTML = '☰ ' + t('elements.deselect.all');
+      toggleBtn.title = t('elements.deselect.all');
+      if (createBtn) createBtn.style.display = selectedGroupElements.length >= 2 ? '' : 'none';
+      if (clearBtn) clearBtn.style.display = '';
     }
     updateSvgElementSelection();
     renderElements();
@@ -1233,7 +1614,7 @@
   function createGroupFromSelection(indices) {
     const items = indices || selectedGroupElements;
     if (items.length < 2) return;
-    const name = prompt('Nombre del grupo:', `Grupo ${nextGroupId}`);
+    const name = prompt(t('group.name.prompt'), t('group.name.default') + nextGroupId);
     if (!name) return;
     pushHistory();
 
@@ -1946,8 +2327,8 @@
   function enterPiecesMode() {
     isPiecesMode = true;
     $('#mode-toggle').classList.add('active');
-    $('#mode-toggle').textContent = 'Salir del modo piezas';
-    $('#mode-hint').textContent = 'Seleccionar desde el panel ELEMENTOS. Usar joystick para mover. ESC para deseleccionar.';
+    $('#mode-toggle').textContent = t('pieces.exit');
+    $('#mode-hint').textContent = t('pieces.hint.select');
     const area = $('#preview-area');
     area.classList.add('mode-select');
     const svg = area.querySelector('svg');
@@ -1962,8 +2343,8 @@
   function exitPiecesMode() {
     isPiecesMode = false;
     $('#mode-toggle').classList.remove('active');
-    $('#mode-toggle').textContent = 'Mover piezas por separado';
-    $('#mode-hint').textContent = 'Activa para seleccionar y arrastrar elementos individuales';
+    $('#mode-toggle').textContent = t('pieces.enter');
+    $('#mode-hint').textContent = t('pieces.hint.inactive');
     const area = $('#preview-area');
     area.classList.remove('mode-select');
     const svg = area.querySelector('svg');
@@ -2361,7 +2742,9 @@
       label.setAttribute('x', p.x + 10);
       label.setAttribute('y', p.y - 10);
       label.classList.add('traj-point-label');
-      label.textContent = (i + 1) + (i === 0 ? ' (inicio)' : i === pts.length - 1 ? ' (fin)' : '');
+      const startLabel = currentLang === 'es' ? ' (inicio)' : ' (start)';
+      const endLabel = currentLang === 'es' ? ' (fin)' : ' (end)';
+      label.textContent = (i + 1) + (i === 0 ? startLabel : i === pts.length - 1 ? endLabel : '');
       svg.appendChild(label);
     });
 
@@ -2416,14 +2799,14 @@
     // Render trajectory list
     list.innerHTML = '';
     if (ids.length === 0) {
-      list.innerHTML = '<div style="font-size:10px;color:var(--text-dim);padding:4px">Sin trayectorias</div>';
+      list.innerHTML = '<div style="font-size:10px;color:var(--text-dim);padding:4px">' + t('trajectory.empty') + '</div>';
     } else {
       ids.forEach(id => {
         const t = trajectories[id];
         const item = document.createElement('div');
         item.className = 'traj-item' + (selectedTrajectoryId === id ? ' active' : '');
         const color = trajColors[(parseInt(id.replace('traj_','')) - 1) % trajColors.length];
-        item.innerHTML = `<span class="traj-color" style="background:${color}"></span><span class="traj-name">${t.name} (${t.points.length} pts)</span><button class="traj-del-btn" title="Eliminar">&times;</button>`;
+        item.innerHTML = `<span class="traj-color" style="background:${color}"></span><span class="traj-name">${t.name} (${t.points.length} pts)</span><button class="traj-del-btn" title="${t('context.delete')}">&times;</button>`;
         item.querySelector('.traj-del-btn').addEventListener('click', e => { e.stopPropagation(); deleteTrajectory(id); });
         item.addEventListener('click', () => {
           if (selectedTrajectoryId === id && isTrajectoryMode) {
@@ -2446,7 +2829,7 @@
     const populateSelect = (sel) => {
       if (!sel) return;
       const currentVal = sel.value;
-      sel.innerHTML = '<option value="">— Ninguna —</option>';
+      sel.innerHTML = '<option value="">' + t('trajectory.none') + '</option>';
       ids.forEach(id => {
         const opt = document.createElement('option');
         opt.value = id;
@@ -2465,7 +2848,7 @@
   }
 
   function addTrajectory(name, points) {
-    const n = name || 'Trayectoria ' + nextTrajId;
+    const n = name || t('trajectory.name.default') + nextTrajId;
     const id = 'traj_' + nextTrajId++;
     const defaultPoints = points || [
       { x: 30, y: 100 }, { x: 55, y: 60 },
@@ -2524,11 +2907,11 @@
 
     menu.innerHTML = '';
 
-    addMenuItem(menu, 'Agrupar', () => {
+    addMenuItem(menu, t('context.group'), () => {
       if (contextMenuTargets.length >= 2) createGroupFromSelection(contextMenuTargets);
       hideContextMenu();
     });
-    addMenuItem(menu, 'Desagrupar', () => {
+    addMenuItem(menu, t('context.ungroup'), () => {
       contextMenuTargets.forEach(i => {
         Object.keys(elementGroups).forEach(gid => {
           const g = elementGroups[gid];
@@ -2542,12 +2925,12 @@
       hideContextMenu();
       renderElements();
     });
-    addMenuItem(menu, 'Ver', () => {
+    addMenuItem(menu, t('context.show'), () => {
       contextMenuTargets.forEach(i => { const el = getElementByIndex(i); if (el) el.style.display = ''; });
       hideContextMenu();
       renderElements();
     });
-    addMenuItem(menu, 'Ocultar', () => {
+    addMenuItem(menu, t('context.hide'), () => {
       contextMenuTargets.forEach(i => { const el = getElementByIndex(i); if (el) el.style.display = 'none'; });
       hideContextMenu();
       renderElements();
@@ -2555,7 +2938,7 @@
     // Trajectory assignment submenu
     const trajIds = Object.keys(trajectories);
     if (trajIds.length > 0) {
-      addMenuItem(menu, 'Asignar trayectoria →', () => { hideContextMenu(); });
+      addMenuItem(menu, t('context.assign.traj'), () => { hideContextMenu(); });
       trajIds.forEach(tid => {
         const t = trajectories[tid];
         addMenuItem(menu, '  ' + t.name, () => {
@@ -2573,7 +2956,7 @@
           if (trajAssignSelect) trajAssignSelect.value = tid;
         });
       });
-      addMenuItem(menu, '  — Quitar trayectoria', () => {
+      addMenuItem(menu, t('context.remove.traj'), () => {
         contextMenuTargets.forEach(i => {
           if (elementAnimations[i]) {
             elementAnimations[i].trajectoryId = null;
@@ -2588,7 +2971,7 @@
         if (trajAssignSelect) trajAssignSelect.value = '';
       });
     }
-    addMenuItem(menu, 'Eliminar', () => { contextMenuTargets.forEach(i => removeElement(i)); hideContextMenu(); renderElements(); });
+    addMenuItem(menu, t('context.delete'), () => { contextMenuTargets.forEach(i => removeElement(i)); hideContextMenu(); renderElements(); });
 
     menu.style.display = 'block';
     const rect = menu.getBoundingClientRect();
@@ -2871,7 +3254,7 @@
 
   function addCurrentAsSlide() {
     if (!currentSvg) return;
-    slides.push({ name: 'Slide ' + (slides.length + 1), svgStr: new XMLSerializer().serializeToString(currentSvg) });
+    slides.push({ name: t('slide.name') + (slides.length + 1), svgStr: new XMLSerializer().serializeToString(currentSvg) });
     renderSlideList();
     if (slides.length === 1) goToSlide(0);
   }
@@ -2923,7 +3306,7 @@
   function startSlideShow() {
     if (slides.length < 2) return;
     isSlidePlaying = true;
-    $('#slide-play').textContent = '⏸ Pausa';
+    $('#slide-play').textContent = t('slide.pause');
     $('#slide-play').classList.add('active');
     slideInterval = setInterval(nextSlide, slideDuration * 1000);
   }
@@ -2932,7 +3315,7 @@
     isSlidePlaying = false;
     if (slideInterval) clearInterval(slideInterval);
     slideInterval = null;
-    $('#slide-play').textContent = '▶ Play';
+    $('#slide-play').textContent = t('slide.play');
     $('#slide-play').classList.remove('active');
   }
 
@@ -2978,9 +3361,9 @@
       btn.className = 'main-btn secondary';
       btn.id = 'add-trajectory-btn';
       btn.style.cssText = 'margin-top:6px;width:100%;font-size:10px';
-      btn.textContent = '+ Nueva trayectoria';
+      btn.textContent = t('trajectory.new');
       btn.addEventListener('click', () => {
-        const name = prompt('Nombre de la trayectoria:', 'Trayectoria ' + nextTrajId);
+        const name = prompt(t('trajectory.name.prompt'), t('trajectory.name.default') + nextTrajId);
         if (name) addTrajectory(name);
       });
       section.appendChild(btn);
@@ -2991,7 +3374,7 @@
     if (toggle) {
       function updateTrajToggle() {
         toggle.classList.toggle('active', isTrajectoryMode && !!trajectories[selectedTrajectoryId]);
-        toggle.textContent = isTrajectoryMode ? 'Cerrar trayectorias' : 'Editar trayectorias';
+        toggle.textContent = isTrajectoryMode ? t('trajectory.close') : t('trajectory.edit');
         const lassoBtn = $('#lasso-toggle');
         if (lassoBtn) lassoBtn.style.display = isTrajectoryMode ? '' : 'none';
       }
@@ -3020,7 +3403,7 @@
     if (lassoBtn) {
       lassoBtn.addEventListener('click', () => {
         isLassoMode = !isLassoMode;
-        lassoBtn.textContent = isLassoMode ? '✎ Lazo: ON' : '✎ Lazo: OFF';
+        lassoBtn.textContent = isLassoMode ? t('trajectory.lasso.on') : t('trajectory.lasso.off');
         lassoBtn.classList.toggle('active', isLassoMode);
         renderTrajectoryOverlay();
       });
@@ -3061,11 +3444,8 @@
   // Language toggle
   const langSelect = $('#lang-select');
   if (langSelect) {
-    const saved = localStorage.getItem('app_lang');
-    if (saved) langSelect.value = saved;
-    langSelect.addEventListener('change', () => {
-      localStorage.setItem('app_lang', langSelect.value);
-    });
+    langSelect.value = currentLang;
+    langSelect.addEventListener('change', () => setLang(langSelect.value));
   }
 
   // Initialize joystick

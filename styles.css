@@ -302,6 +302,9 @@ input[type="range"]::-webkit-slider-thumb {
   background: radial-gradient(circle at 1px 1px, var(--border) 1px, transparent 0);
   background-size: 24px 24px;
 }
+.preview.boundary-active {
+  background: transparent;
+}
 
 .preview-empty {
   display: flex;
