@@ -1352,9 +1352,17 @@
       el.classList.remove('element-dimmed');
     });
     if (elements[index]) {
-      elements[index].classList.add('element-selected');
+      const sel = elements[index];
+      sel.classList.add('element-selected');
+      // Find <g> ancestors of the selected element to skip them
+      const ancestors = new Set();
+      let p = sel.parentElement;
+      while (p && p !== svg) {
+        if (p.tagName.toLowerCase() === 'g') ancestors.add(p);
+        p = p.parentElement;
+      }
       elements.forEach((el, i) => {
-        if (i !== index) el.classList.add('element-dimmed');
+        if (i !== index && !ancestors.has(el)) el.classList.add('element-dimmed');
       });
     }
   }
