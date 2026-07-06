@@ -328,12 +328,18 @@
     document.title = t('app.title');
     // Update lang attribute
     document.documentElement.lang = currentLang;
-    // Re-render dynamic content if needed
+    // Re-render dynamic content
     if (typeof renderElements === 'function') renderElements();
     if (typeof renderShapeGrid === 'function') renderShapeGrid();
     if (typeof renderPresetGrid === 'function') renderPresetGrid();
     if (typeof renderSlideList === 'function') renderSlideList();
     if (typeof renderTrajectories === 'function') renderTrajectories();
+    if (typeof renderBackgrounds === 'function') renderBackgrounds();
+    renderWorkspaceTabs();
+    // Restore preset/control active state
+    if (selectedElementIndex !== null && typeof loadElementConfig === 'function') {
+      loadElementConfig(selectedElementIndex);
+    }
   }
 
   const presets = [
@@ -509,7 +515,7 @@
     if (ws.isPiecesMode) {
       enterPiecesMode();
       if (ws.selectedElementIndex !== null && ws.selectedElementIndex >= 0) {
-        highlightElement(ws.selectedElementIndex);
+        selectElement(ws.selectedElementIndex);
       }
     }
   }
@@ -1046,6 +1052,7 @@
     selectedGroupElements = [];
     selectedGroupId = null;
     isMultiSelectMode = false;
+    updateSvgElementSelection();
     nextGroupId = 1;
     trajectories = {};
     nextTrajId = 1;
@@ -1170,30 +1177,40 @@
 
   fetchFileList();
 
-  // Build shape grid
-  const shapeGrid = $('#shape-grid');
-  shapes.forEach(s => {
-    const btn = document.createElement('button');
-    btn.className = 'shape-btn';
-    btn.innerHTML = s.svg + t('shape.' + s.name);
-    btn.addEventListener('click', () => loadSvgString(s.svg));
-    shapeGrid.appendChild(btn);
-  });
-
-  // Build preset grid
-  const presetGrid = $('#preset-grid');
   let lastPresetId = null;
-  presets.forEach(p => {
-    const btn = document.createElement('button');
-    btn.className = 'preset-btn';
-    btn.dataset.id = p.id;
-    btn.innerHTML = `<span class="dot" style="background:${p.color}"></span>${t('preset.' + p.name)}`;
-    btn.addEventListener('click', () => {
-      lastPresetId = p.id;
-      togglePreset(p.id);
+
+  function renderShapeGrid() {
+    const grid = $('#shape-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    shapes.forEach(s => {
+      const btn = document.createElement('button');
+      btn.className = 'shape-btn';
+      btn.innerHTML = s.svg + t('shape.' + s.name);
+      btn.addEventListener('click', () => loadSvgString(s.svg));
+      grid.appendChild(btn);
     });
-    presetGrid.appendChild(btn);
-  });
+  }
+
+  function renderPresetGrid() {
+    const grid = $('#preset-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    presets.forEach(p => {
+      const btn = document.createElement('button');
+      btn.className = 'preset-btn';
+      btn.dataset.id = p.id;
+      btn.innerHTML = `<span class="dot" style="background:${p.color}"></span>${t('preset.' + p.name)}`;
+      btn.addEventListener('click', () => {
+        lastPresetId = p.id;
+        togglePreset(p.id);
+      });
+      grid.appendChild(btn);
+    });
+  }
+
+  renderShapeGrid();
+  renderPresetGrid();
 
   // Apply to all elements
   $('#apply-all-btn').addEventListener('click', () => {
@@ -1437,8 +1454,7 @@
       }
 
       const item = document.createElement('div');
-      item.className = 'element-thumb' + (selectedElementIndex === i ? ' selected' : '');
-      if (selectedGroupElements.includes(i)) item.classList.add('multi-selected');
+      item.className = 'element-thumb' + (selectedGroupElements.includes(i) ? ' selected' : '');
       if (group) item.classList.add('grouped');
       item.dataset.index = i;
 
@@ -1486,19 +1502,34 @@
       item.appendChild(visBtn);
 
       item.addEventListener('click', e => {
-        // Toggle selection: click same element deselects
-        if (selectedElementIndex === i) {
-          selectedElementIndex = null;
-          hideJoystick();
-          $$('.element-thumb').forEach(t => t.classList.remove('selected'));
-          svg.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, g, text').forEach(el => {
-            el.classList.remove('element-selected');
-            el.classList.remove('element-dimmed');
-          });
-          return;
+        const idx = selectedGroupElements.indexOf(i);
+        if (idx !== -1) {
+          // Already selected — deselect it
+          selectedGroupElements.splice(idx, 1);
+          if (selectedGroupElements.length === 0) {
+            selectedElementIndex = null;
+            hideJoystick();
+            updateSvgElementSelection();
+            renderElements();
+            return;
+          }
+          // If the deselected one was the active control, pick another
+          if (selectedElementIndex === i) {
+            selectedElementIndex = selectedGroupElements[selectedGroupElements.length - 1];
+          }
+        } else {
+          // Not selected — add it
+          selectedGroupElements.push(i);
+          selectedElementIndex = i;
         }
-        selectedElementIndex = i;
-        selectElement(i);
+        // Sync visual highlighting on canvas
+        updateSvgElementSelection();
+        if (selectedElementIndex !== null) {
+          loadElementConfig(selectedElementIndex);
+          updatePivotMarker(selectedElementIndex);
+          if (isPiecesMode) showJoystick();
+        }
+        renderElements();
       });
       item.addEventListener('contextmenu', e => {
         e.preventDefault();
@@ -1592,16 +1623,33 @@
     const svg = $('#preview-area svg');
     if (!svg) return;
     const elements = svg.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, g, text');
+    // Find <g> ancestors of selected elements to skip them
+    const ancestors = new Set();
+    selectedGroupElements.forEach(idx => {
+      if (elements[idx]) {
+        let p = elements[idx].parentElement;
+        while (p && p !== svg) {
+          if (p.tagName.toLowerCase() === 'g') ancestors.add(p);
+          p = p.parentElement;
+        }
+      }
+    });
     elements.forEach((el, i) => {
       el.classList.toggle('element-selected', selectedGroupElements.includes(i));
+      el.classList.toggle('element-dimmed', selectedGroupElements.length > 0 && !selectedGroupElements.includes(i) && !ancestors.has(el));
     });
+    if (selectedGroupElements.length === 0) {
+      elements.forEach(el => el.classList.remove('element-selected', 'element-dimmed'));
+    }
   }
 
   function clearGroupSelection() {
     selectedGroupElements = [];
-    const svg = $('#preview-area svg');
-    if (svg) svg.querySelectorAll('.element-selected').forEach(el => el.classList.remove('element-selected'));
+    selectedElementIndex = null;
+    hideJoystick();
+    updateSvgElementSelection();
     isMultiSelectMode = false;
+    $$('.element-thumb').forEach(t => t.classList.remove('selected'));
     const toggleBtn = $('#toggle-multiselect');
     if (toggleBtn) toggleBtn.classList.remove('active');
     const createBtn = $('#create-group-btn');
@@ -1664,14 +1712,8 @@
 
     selectedGroupId = groupId;
 
-    // Highlight all elements in the group
-    const svg = $('#preview-area svg');
-    if (!svg) return;
-    const elements = svg.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, g, text');
-    svg.querySelectorAll('*').forEach(el => el.classList.remove('element-selected'));
-    group.elements.forEach(idx => {
-      if (elements[idx]) elements[idx].classList.add('element-selected');
-    });
+    // Select all elements in the group
+    selectedGroupElements = [...group.elements];
 
     // Show group config in controls
     if (group.config && group.config.presetId) {
@@ -1695,6 +1737,7 @@
     if (group.elements.length > 0) {
       selectElement(group.elements[0]);
     }
+    renderElements();
   }
 
   function applyGroupAnimation(groupId) {
@@ -1719,8 +1762,10 @@
 
   function selectElement(index) {
     selectedElementIndex = index;
-    $$('.element-thumb').forEach(t => t.classList.toggle('selected', parseInt(t.dataset.index) === index));
-    highlightElement(index);
+    // Add to selection group if not already there
+    if (!selectedGroupElements.includes(index)) selectedGroupElements.push(index);
+    $$('.element-thumb').forEach(t => t.classList.toggle('selected', selectedGroupElements.includes(parseInt(t.dataset.index))));
+    updateSvgElementSelection();
     loadElementConfig(index);
     updatePivotMarker(index);
     if (isPiecesMode) showJoystick();
@@ -3059,19 +3104,8 @@
 
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && isPiecesMode) {
-      if (selectedGroupElements.length) {
+      if (selectedGroupElements.length || selectedElementIndex !== null) {
         clearGroupSelection();
-      } else if (selectedElementIndex !== null) {
-        hideJoystick();
-        const svg = $('#preview-area svg');
-        if (svg) {
-          svg.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, g, text').forEach(el => {
-            el.classList.remove('element-selected');
-            el.classList.remove('element-dimmed');
-          });
-        }
-        selectedElementIndex = null;
-        $$('.element-thumb').forEach(t => t.classList.remove('selected'));
       }
     }
   });
