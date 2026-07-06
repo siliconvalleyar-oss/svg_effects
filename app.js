@@ -174,9 +174,8 @@
 
     if (ws.isPiecesMode) {
       enterPiecesMode();
-      if (ws.piecesSelectedIndex >= 0) {
-        const el = getElementByIndex(ws.piecesSelectedIndex);
-        if (el) { selectedElement = el; el.classList.add('element-selected'); }
+      if (ws.selectedElementIndex !== null && ws.selectedElementIndex >= 0) {
+        highlightElement(ws.selectedElementIndex);
       }
     }
   }
@@ -1117,7 +1116,10 @@
         if (selectedElementIndex === i) {
           selectedElementIndex = null;
           $$('.element-thumb').forEach(t => t.classList.remove('selected'));
-          svg.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, g, text').forEach(el => el.classList.remove('element-selected'));
+          svg.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, g, text').forEach(el => {
+            el.classList.remove('element-selected');
+            el.classList.remove('element-dimmed');
+          });
           return;
         }
         selectedElementIndex = i;
@@ -1344,10 +1346,16 @@
   function highlightElement(index) {
     const svg = $('#preview-area svg');
     if (!svg) return;
-    svg.querySelectorAll('*').forEach(el => el.classList.remove('element-selected'));
     const elements = svg.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, g, text');
+    elements.forEach(el => {
+      el.classList.remove('element-selected');
+      el.classList.remove('element-dimmed');
+    });
     if (elements[index]) {
       elements[index].classList.add('element-selected');
+      elements.forEach((el, i) => {
+        if (i !== index) el.classList.add('element-dimmed');
+      });
     }
   }
 
@@ -1929,7 +1937,7 @@
     isPiecesMode = true;
     $('#mode-toggle').classList.add('active');
     $('#mode-toggle').textContent = 'Salir del modo piezas';
-    $('#mode-hint').textContent = 'Click para seleccionar, arrastrar para mover. ESC para deseleccionar.';
+    $('#mode-hint').textContent = 'Arrastrar para mover. Seleccionar desde el panel ELEMENTOS. ESC para deseleccionar.';
     const area = $('#preview-area');
     area.classList.add('mode-select');
     const svg = area.querySelector('svg');
@@ -1954,6 +1962,7 @@
       el.removeEventListener('pointerdown', onElementPointerDown);
       el.removeEventListener('contextmenu', onElementContextMenu);
       el.classList.remove('element-selected');
+      el.classList.remove('element-dimmed');
       el.style.removeProperty('transform');
     });
     restoreAnimations();
@@ -1978,16 +1987,9 @@
     e.stopPropagation();
     e.preventDefault();
     const el = e.currentTarget;
-    if (e.ctrlKey || e.metaKey) {
-      const i = getElementIndex(el);
-      if (i !== -1) toggleElementSelection(i);
-    }
-    if (selectedElement && selectedElement !== el) selectedElement.classList.remove('element-selected');
-    selectedElement = el;
-    selectedElement.classList.add('element-selected');
     const svgEl = $('#preview-area svg');
     const vb = getSvgViewBox(svgEl);
-    dragState = { element: selectedElement, startClientX: e.clientX, startClientY: e.clientY, svgRect: svgEl.getBoundingClientRect(), vbW: vb.w, vbH: vb.h };
+    dragState = { element: el, startClientX: e.clientX, startClientY: e.clientY, svgRect: svgEl.getBoundingClientRect(), vbW: vb.w, vbH: vb.h };
     document.addEventListener('pointermove', onElementPointerMove);
     document.addEventListener('pointerup', onElementPointerUp);
   }
@@ -2605,10 +2607,16 @@
     if (e.key === 'Escape' && isPiecesMode) {
       if (selectedGroupElements.length) {
         clearGroupSelection();
-      } else if (selectedElement) {
-        selectedElement.classList.remove('element-selected');
-        selectedElement.style.removeProperty('transform');
-        selectedElement = null;
+      } else if (selectedElementIndex !== null) {
+        const svg = $('#preview-area svg');
+        if (svg) {
+          svg.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, g, text').forEach(el => {
+            el.classList.remove('element-selected');
+            el.classList.remove('element-dimmed');
+          });
+        }
+        selectedElementIndex = null;
+        $$('.element-thumb').forEach(t => t.classList.remove('selected'));
       }
     }
   });
@@ -2620,6 +2628,9 @@
     const svg = $('#preview-area svg');
     const clone = svg.cloneNode(true);
     clone.removeAttribute('class');
+    clone.querySelectorAll('.element-selected, .element-dimmed').forEach(el => {
+      el.classList.remove('element-selected', 'element-dimmed');
+    });
     clone.querySelectorAll('style#dir-keyframes').forEach(s => s.remove());
 
     const elements = clone.querySelectorAll('circle, rect, ellipse, path, line, polyline, polygon, g, text');

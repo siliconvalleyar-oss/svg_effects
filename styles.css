@@ -829,10 +829,13 @@ input[type="range"]::-webkit-slider-thumb {
 /* Element selection */
 #preview-area.mode-select svg * { cursor: pointer; }
 #preview-area.mode-select svg *:hover { filter: drop-shadow(0 0 4px rgba(108, 92, 231, 0.6)); }
-#preview-area svg .element-selected {
+#preview-area.mode-select svg .element-dimmed {
+  opacity: 0.3;
+  transition: opacity 0.2s ease;
+}
+#preview-area.mode-select svg .element-selected {
   filter: drop-shadow(0 0 6px rgba(108, 92, 231, 0.9));
-  outline: 2px dashed var(--accent);
-  outline-offset: 2px;
+  opacity: 1;
 }
 
 /* Slides */
